@@ -1,52 +1,53 @@
-/* color palette from <https://github.com/vuejs/theme> */
+/* Palette moderne */
 :root {
   --vt-c-white: #ffffff;
-  --vt-c-white-soft: #f8f8f8;
-  --vt-c-white-mute: #f2f2f2;
+  --vt-c-gray-50: #f9fafb;
+  --vt-c-gray-100: #f3f4f6;
+  --vt-c-gray-200: #e5e7eb;
+  --vt-c-gray-700: #374151;
+  --vt-c-gray-900: #111827;
 
-  --vt-c-black: #181818;
-  --vt-c-black-soft: #222222;
-  --vt-c-black-mute: #282828;
+  --vt-c-blue-500: #3b82f6;
+  --vt-c-blue-100: #dbeafe;
+  --vt-c-blue-800: #1e40af;
 
-  --vt-c-indigo: #2c3e50;
-
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
-
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+  --vt-c-text: var(--vt-c-gray-900);
+  --vt-c-muted: var(--vt-c-gray-700);
+  --vt-c-border: var(--vt-c-gray-200);
 }
 
 /* semantic color variables for this project */
 :root {
-  --color-background: var(--vt-c-white);
-  --color-background-soft: var(--vt-c-white-soft);
-  --color-background-mute: var(--vt-c-white-mute);
+  --color-background: var(--vt-c-gray-50);
+  --color-background-soft: var(--vt-c-gray-100);
+  --color-background-mute: var(--vt-c-white);
 
-  --color-border: var(--vt-c-divider-light-2);
-  --color-border-hover: var(--vt-c-divider-light-1);
+  --color-border: var(--vt-c-border);
+  --color-border-hover: var(--vt-c-blue-100);
 
-  --color-heading: var(--vt-c-text-light-1);
-  --color-text: var(--vt-c-text-light-1);
+  --color-heading: var(--vt-c-text);
+  --color-text: var(--vt-c-muted);
+
+  --color-accent: var(--vt-c-blue-500);
+  --color-accent-hover: var(--vt-c-blue-800);
 
   --section-gap: 160px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background: var(--vt-c-black);
-    --color-background-soft: var(--vt-c-black-soft);
-    --color-background-mute: var(--vt-c-black-mute);
+    --color-background: var(--vt-c-gray-900);
+    --color-background-soft: #1f2937;
+    --color-background-mute: #1c1c1e;
 
-    --color-border: var(--vt-c-divider-dark-2);
-    --color-border-hover: var(--vt-c-divider-dark-1);
+    --color-border: #374151;
+    --color-border-hover: #4b5563;
 
-    --color-heading: var(--vt-c-text-dark-1);
-    --color-text: var(--vt-c-text-dark-2);
+    --color-heading: var(--vt-c-gray-50);
+    --color-text: #9ca3af;
+
+    --color-accent: #60a5fa;
+    --color-accent-hover: #3b82f6;
   }
 }
 

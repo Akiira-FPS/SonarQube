@@ -3,6 +3,6 @@
 
 <template>
   <main>
-    Bienvenue
+    Bienvenue ALL
   </main>
 </template>
