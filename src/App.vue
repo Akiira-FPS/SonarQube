@@ -38,9 +38,10 @@ header {
   top: 0;
   left: 0;
   width: 100%;
-  background-color: #fff;
+  background-color: var(--color-navbar-background);
   border-bottom: 1px solid var(--color-border);
   z-index: 1000;
+  transition: background-color 0.5s, border-color 0.5s;
 }
 
 .navbar {
@@ -58,11 +59,11 @@ nav {
 }
 
 nav a {
-  color: var(--color-text);
+  color: var(--color-navbar-text);
   text-decoration: none;
   font-weight: 500;
   padding: 0.5rem 1rem;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.5s;
   white-space: nowrap;
 }
 
@@ -71,11 +72,10 @@ nav a.router-link-exact-active {
 }
 
 nav a:hover {
-  background-color: #f2f2f2;
+  background-color: var(--color-background-soft);
   border-radius: 5px;
 }
 
-/* Push main content below navbar */
 main {
   margin-top: 4.5rem;
   padding: 1rem;

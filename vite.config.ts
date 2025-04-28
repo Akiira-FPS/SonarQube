@@ -16,8 +16,6 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://sonar.zetaly.local:9000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

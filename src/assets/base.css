@@ -21,6 +21,8 @@
   --color-background: var(--vt-c-gray-50);
   --color-background-soft: var(--vt-c-gray-100);
   --color-background-mute: var(--vt-c-white);
+  --color-navbar-background: var(--vt-c-gray-900);
+  --color-navbar-text: var(--vt-c-gray-50);
 
   --color-border: var(--vt-c-border);
   --color-border-hover: var(--vt-c-blue-100);
@@ -48,6 +50,13 @@
 
     --color-accent: #60a5fa;
     --color-accent-hover: #3b82f6;
+
+    --color-navbar-background: var(--vt-c-gray-50);
+    --color-navbar-text: var(--vt-c-gray-900);
+  }
+
+  .card-elevated {
+    background: var(--color-background-soft);
   }
 }
 

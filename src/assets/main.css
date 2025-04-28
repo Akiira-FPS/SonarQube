@@ -1,10 +1,7 @@
 @import './base.css';
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
   padding: 2rem;
-  font-weight: normal;
 }
 
 @media (hover: hover) {
@@ -13,15 +10,36 @@
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+/* Style de la carte avec élévation et padding propre */
+.card-elevated {
+  background: var(--vt-c-white); /* Fond blanc pour bien ressortir */
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+  transition:
+    box-shadow 0.3s,
+    transform 0.3s,
+    background 0.3s;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+.card-elevated:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+}
+
+.page-container {
+  padding: 2rem;
+}
+
+.cards-container {
+  display: grid;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+/* Ajouter une transition douce */
+body {
+  transition:
+    background 0.5s,
+    color 0.5s;
 }
