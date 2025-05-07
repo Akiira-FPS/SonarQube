@@ -152,5 +152,6 @@ const chartOptions = computed(() => ({
 
 .card-elevated {
   flex: 1;
+  margin-top: 1rem;
 }
 </style>
