@@ -1,5 +1,7 @@
 import type { SonarHistoryFilters, SonarMetricHistory, SonarProject } from '@/model/sonar-model'
 import axios from 'axios'
+import dotenv from 'dotenv'
+dotenv.config()
 
 const token = import.meta.env.VITE_SONAR_TOKEN
 
