@@ -1,18 +1,57 @@
 @import './base.css';
 
-#app {
-  padding: 2rem;
+/* === Réglages de base === */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex-grow: 1;
+  z-index: 1;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+/* Conteneur principal */
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Comportement responsive : adaptatif à l'écran */
+@media (min-width: 768px) {
+  .cards-container {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
 }
 
-/* Style de la carte avec élévation et padding propre */
+/* === Cartes === */
 .card-elevated {
-  background: var(--vt-c-white); /* Fond blanc pour bien ressortir */
+  background: var(--vt-c-white);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 2rem;
@@ -20,6 +59,7 @@
     box-shadow 0.3s,
     transform 0.3s,
     background 0.3s;
+  width: 100%;
 }
 
 .card-elevated:hover {
@@ -27,19 +67,76 @@
   transform: translateY(-4px);
 }
 
-.page-container {
-  padding: 2rem;
+/* Conteneur de graphiques */
+.chart-container {
+  display: flex;
+  flex-direction: column;
 }
 
-.cards-container {
-  display: grid;
-  gap: 2rem;
-  margin-top: 2rem;
+/* === Liens interactifs === */
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
 }
 
-/* Ajouter une transition douce */
-body {
-  transition:
-    background 0.5s,
-    color 0.5s;
+/* === Style personnalisé PrimeVue DatePicker === */
+.p-datepicker-panel {
+  background-color: var(--color-background-mute) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08) !important;
+  padding: 0.5rem !important;
+  color: var(--color-text) !important;
+}
+
+.p-datepicker-header {
+  background-color: var(--color-background-soft) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  padding: 0.5rem 1rem !important;
+  border-top-left-radius: 0.75rem !important;
+  border-top-right-radius: 0.75rem !important;
+  font-weight: 500 !important;
+  color: var(--color-heading) !important;
+}
+
+.p-datepicker-calendar td > span {
+  display: inline-block !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  line-height: 2rem !important;
+  text-align: center !important;
+  border-radius: 0.375rem !important;
+  transition: background 0.2s ease !important;
+  color: var(--color-text) !important;
+}
+
+.p-datepicker-calendar td > span:hover {
+  background-color: var(--color-hover-nav) !important;
+  cursor: pointer !important;
+}
+
+.p-datepicker-calendar td.p-datepicker-today > span {
+  border: 1px solid var(--color-accent) !important;
+}
+
+.p-datepicker-calendar td.p-highlight > span {
+  background-color: var(--color-accent) !important;
+  color: white !important;
+}
+
+.p-datepicker-prev,
+.p-datepicker-next {
+  color: var(--color-heading) !important;
+  border-radius: 0.375rem !important;
+  padding: 0.25rem !important;
+}
+
+.p-datepicker-prev:hover,
+.p-datepicker-next:hover {
+  background-color: var(--color-hover-nav) !important;
+}
+
+.p-datepicker-calendar thead {
+  display: none !important;
 }

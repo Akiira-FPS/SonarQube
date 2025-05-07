@@ -23,7 +23,7 @@
   --color-background-mute: var(--vt-c-white);
   --color-navbar-background: var(--vt-c-gray-900);
   --color-navbar-text: var(--vt-c-gray-50);
-
+  --color-hover-nav: var(--vt-c-blue-100);
   --color-border: var(--vt-c-border);
   --color-border-hover: var(--vt-c-blue-100);
 
@@ -44,6 +44,7 @@
 
     --color-border: #374151;
     --color-border-hover: #4b5563;
+    --color-hover-nav: var(--vt-c-blue-100);
 
     --color-heading: var(--vt-c-gray-50);
     --color-text: #9ca3af;
@@ -60,16 +61,15 @@
   }
 }
 
-*,
+/* *,
 *::before,
 *::after {
   box-sizing: border-box;
   margin: 0;
   font-weight: normal;
-}
+} */
 
 body {
-  min-height: 100vh;
   color: var(--color-text);
   background: var(--color-background);
   transition:

@@ -1,17 +1,25 @@
 export interface SonarHistoryFilters {
-  component: string; // Clé du projet SonarQube
-  metrics: string; // Exemple: "bugs,code_smells,coverage"
-  from?: string; // Format: "YYYY-MM-DD"
-  to?: string;   // Format: "YYYY-MM-DD"
+  component: string
+  metrics: string
+  from?: string
+  to?: string
 }
-  
+
 export interface MetricValue {
-  date: string;
-  value: string;
+  date: string
+  value: string
 }
-  
+
 export interface SonarMetricHistory {
-  metric: string;
-  history: MetricValue[];
+  metric: string
+  history: MetricValue[]
 }
-  
+
+export interface SonarProject {
+  key: string
+  name: string
+  qualifier: string
+  visibility: string
+  lastAnalysisDate?: string
+  revision?: string
+}
