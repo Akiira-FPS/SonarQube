@@ -18,7 +18,7 @@ onMounted(async () => {
 <template>
   <header class="app-header">
     <nav class="navbar">
-      <RouterLink to="/all">All Stats</RouterLink>
+      <RouterLink to="/">All Stats</RouterLink>
       <template v-for="project in projects" :key="project.key">
         <RouterLink :to="`/project/${project.key}`">{{ project.name }}</RouterLink>
       </template>
