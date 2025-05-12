@@ -43,13 +43,14 @@ function handleRangeUpdate(range: any) {
 const dailyBugs = ref<Record<string, number>>({})
 const dailySmells = ref<Record<string, number>>({})
 const dailyTotal = ref<Record<string, number>>({})
+const dailyHotspots = ref<Record<string, number>>({});
 
 async function loadData(key: string) {
   isLoading.value = true;
   try {
     const response = await getSonarHistory({
       component: key,
-      metrics: 'bugs,code_smells',
+      metrics: 'bugs,code_smells,security_hotspots',
       from: format(dateRange.value.start, 'yyyy-MM-dd'),
       to: format(dateRange.value.end, 'yyyy-MM-dd'),
     });
@@ -63,22 +64,26 @@ async function loadData(key: string) {
       return acc;
     }, {});
 
-    let lastBugs = 0, lastSmells = 0;
+    let lastBugs = 0, lastSmells = 0, lastHotspots = 0;
     const bugs: Record<string, number> = {};
     const smells: Record<string, number> = {};
+    const hotspots: Record<string, number> = {};
     const total: Record<string, number> = {};
 
     for (const date of allDates.value) {
       const m = grouped[date] || {};
       if (m.bugs !== undefined) lastBugs = m.bugs;
       if (m.code_smells !== undefined) lastSmells = m.code_smells;
+      if (m.security_hotspots !== undefined) lastHotspots = m.security_hotspots;
       bugs[date] = lastBugs;
       smells[date] = lastSmells;
-      total[date] = lastBugs + lastSmells;
+      hotspots[date] = lastHotspots;
+      total[date] = lastBugs + lastSmells + lastHotspots;
     }
 
     dailyBugs.value = bugs;
     dailySmells.value = smells;
+    dailyHotspots.value = hotspots;
     dailyTotal.value = total;
   } catch (err) {
     console.error('Erreur chargement métriques:', err);
@@ -101,6 +106,7 @@ const chartData = computed(() => ({
   bugs: allDates.value.map(date => dailyBugs.value[date] ?? 0),
   smells: allDates.value.map(date => dailySmells.value[date] ?? 0),
   total: allDates.value.map(date => dailyTotal.value[date] ?? 0),
+  hotspots: allDates.value.map(date => dailyHotspots.value[date] ?? 0),
 }));
 
 const chartOptions = computed(() => ({
@@ -118,11 +124,13 @@ const chartOptions = computed(() => ({
       const bugs = chartData.value.bugs[dataPointIndex];
       const smells = chartData.value.smells[dataPointIndex];
       const total = chartData.value.total[dataPointIndex];
+      const hotspots = chartData.value.hotspots[dataPointIndex];
       return `
         <div style="padding:8px;">
           <strong>${date}</strong><br/>
           🐞 Bugs: ${bugs}<br/>
           💨 Code Smells: ${smells}<br/>
+          💥 <strong>Security Hotspots: ${hotspots} </strong><br/>
           🧮 <strong>Total: ${total}</strong>
         </div>
       `
@@ -131,6 +139,7 @@ const chartOptions = computed(() => ({
   series: [
     { name: 'Bugs', data: chartData.value.bugs, hidden: true },
     { name: 'Code Smells', data: chartData.value.smells, hidden: true },
+    { name: 'Security Hotspots', data: chartData.value.hotspots, hidden: true },
     { name: 'Total Issues', data: chartData.value.total }
   ]
 }));
