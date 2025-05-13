@@ -7,6 +7,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 const url = process.env.SONAR_URL
+const isDev = process.env.NODE_ENV !== 'production'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -16,11 +17,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  server: {
-    proxy: {
-      '/api': {
-        target: url,
-      },
-    },
-  },
+  server: isDev
+    ? {
+        proxy: {
+          '/api': {
+            target: url,
+          },
+        },
+      }
+    : undefined,
 })

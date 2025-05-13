@@ -2,12 +2,13 @@ import type { SonarHistoryFilters, SonarMetricHistory, SonarProject } from '@/mo
 import axios from 'axios'
 
 const token = import.meta.env.VITE_SONAR_TOKEN
+const sonarUrl = import.meta.env.VITE_SONAR_URL
 
 export async function getSonarHistory(
   filters: SonarHistoryFilters,
 ): Promise<Array<SonarMetricHistory>> {
   return axios
-    .get(`/api/measures/search_history`, {
+    .get(`${sonarUrl}/api/measures/search_history`, {
       params: filters,
       headers: {
         Authorization: `Basic ${btoa(token + ':')}`,
@@ -18,7 +19,7 @@ export async function getSonarHistory(
 
 export async function getSonarProjects(): Promise<Array<SonarProject>> {
   return axios
-    .get(`/api/projects/search`, {
+    .get(`${sonarUrl}/api/projects/search`, {
       headers: {
         Authorization: `Basic ${btoa(token + ':')}`,
       },
