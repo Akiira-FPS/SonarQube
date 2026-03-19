@@ -43,8 +43,8 @@ Un fichier `.env` est présent à la racine du projet (ou à créer s’il n’e
 Exemples de variables typiques (à adapter selon ton projet) :
 
 ```env
-VITE_API_BASE_URL=http://localhost:9000
-VITE_SONAR_TOKEN=xxxxxxxxxxxxxxxx
+VITE_SONAR_TOKEN=SONAR_TOKEN
+VITE_SONAR_URL=SONAR_URL
 ```
 
 > Ne jamais committer les secrets (tokens, mots de passe, etc.) dans le dépôt Git.
@@ -137,7 +137,7 @@ npm run build
 
 ### 6. Scripts npm disponibles
 
-Récapitulatif des scripts principaux (à vérifier dans `package.json`) :
+Récapitulatif des scripts principaux (voir `package.json`) :
 
 - `npm run dev` : démarrage du serveur de développement.
 - `npm run build` : build de production.

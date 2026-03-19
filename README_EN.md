@@ -43,8 +43,8 @@ An `.env` file is located at the root of the project (or you can create it if it
 Example of typical variables (adapt to your project):
 
 ```env
-VITE_API_BASE_URL=http://localhost:9000
-VITE_SONAR_TOKEN=xxxxxxxxxxxxxxxx
+VITE_SONAR_TOKEN=SONAR_TOKEN
+VITE_SONAR_URL=SONAR_URL
 ```
 
 > Never commit secrets (tokens, passwords, etc.) to the Git repository.
