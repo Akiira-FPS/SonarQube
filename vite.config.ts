@@ -6,7 +6,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import dotenv from 'dotenv'
 dotenv.config()
 
-const url = process.env.SONAR_URL
+const url = process.env.VITE_SONAR_URL
 const isDev = process.env.NODE_ENV !== 'production'
 
 // https://vite.dev/config/
@@ -22,6 +22,7 @@ export default defineConfig({
         proxy: {
           '/api': {
             target: url,
+            changeOrigin: true,
           },
         },
       }
