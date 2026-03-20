@@ -73,12 +73,18 @@ nav a {
 }
 
 nav a.router-link-exact-active {
-  border-bottom: 2px solid var(--color-accent);
+  border-bottom: 2px solid var(--color-border);
 }
 
 nav a:hover {
   background-color: var(--color-hover-nav);
   color: var(--vt-c-gray-900);
+}
+
+@media (prefers-color-scheme: dark) {
+  nav a:hover {
+    color: var(--color-navbar-text);
+  }
 }
 
 .app-main {

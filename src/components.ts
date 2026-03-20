@@ -1,9 +1,12 @@
 // PrimeVue components
-import DatePicker from 'primevue/datepicker'
-// Custom components
-import DateRangePicker from './components/DateRangePicker.vue'
+import Button from 'primevue/button'
+import Card from 'primevue/card'
+import Divider from 'primevue/divider'
+import ProgressSpinner from 'primevue/progressspinner'
 
 export default {
-  DatePicker,
-  DateRangePicker,
+  Button,
+  Card,
+  Divider,
+  ProgressSpinner,
 }

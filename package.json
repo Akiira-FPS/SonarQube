@@ -13,13 +13,14 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@primeuix/themes": "^2.0.3",
     "apexcharts": "^4.7.0",
     "axios": "^1.9.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "dotenv": "^16.5.0",
     "primeicons": "^7.0.0",
-    "primevue": "^4.3.3",
+    "primevue": "^4.5.4",
     "sass-embedded": "^1.87.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",

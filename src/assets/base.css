@@ -7,67 +7,58 @@
   --vt-c-gray-700: #374151;
   --vt-c-gray-900: #111827;
 
-  --vt-c-blue-500: #3b82f6;
-  --vt-c-blue-100: #dbeafe;
-  --vt-c-blue-800: #1e40af;
+  --vt-c-rose-500: #f43f5e;
+  --vt-c-rose-100: #ffe4e6;
+  --vt-c-rose-200: #fecdd3;
+  --vt-c-rose-800: #9f1239;
 
   --vt-c-text: var(--vt-c-gray-900);
   --vt-c-muted: var(--vt-c-gray-700);
   --vt-c-border: var(--vt-c-gray-200);
-}
 
-/* semantic color variables for this project */
-:root {
   --color-background: var(--vt-c-gray-50);
   --color-background-soft: var(--vt-c-gray-100);
   --color-background-mute: var(--vt-c-white);
   --color-navbar-background: var(--vt-c-gray-900);
   --color-navbar-text: var(--vt-c-gray-50);
-  --color-hover-nav: var(--vt-c-blue-100);
-  --color-border: var(--vt-c-border);
-  --color-border-hover: var(--vt-c-blue-100);
+  --color-hover-nav: var(--vt-c-rose-100);
+  --color-border: var(--vt-c-rose-100);
 
   --color-heading: var(--vt-c-text);
   --color-text: var(--vt-c-muted);
 
-  --color-accent: var(--vt-c-blue-500);
-  --color-accent-hover: var(--vt-c-blue-800);
+  --color-accent: var(--vt-c-rose-500);
+  --color-accent-hover: var(--vt-c-rose-800);
 
   --section-gap: 160px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background: var(--vt-c-gray-900);
-    --color-background-soft: #1f2937;
-    --color-background-mute: #1c1c1e;
+    --color-background: #060a16;
+    --color-background-soft: #17203f;
+    --color-background-mute: #24305a;
 
-    --color-border: #374151;
-    --color-border-hover: #4b5563;
-    --color-hover-nav: var(--vt-c-blue-100);
+    --color-border: #3b368f;
+    --color-border-hover: #5f6fba;
+    --color-hover-nav: #3b368f;
 
     --color-heading: var(--vt-c-gray-50);
-    --color-text: #9ca3af;
+    --color-text: #d6ddff;
 
-    --color-accent: #60a5fa;
-    --color-accent-hover: #3b82f6;
+    --color-accent: #a78bfa;
+    --color-accent-hover: #8b5cf6;
 
-    --color-navbar-background: var(--vt-c-gray-50);
-    --color-navbar-text: var(--vt-c-gray-900);
+    --color-navbar-background: #040712;
+    --color-navbar-text: var(--vt-c-gray-50);
   }
 
   .card-elevated {
     background: var(--color-background-soft);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
   }
 }
-
-/* *,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  font-weight: normal;
-} */
 
 body {
   color: var(--color-text);
