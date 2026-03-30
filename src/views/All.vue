@@ -33,7 +33,7 @@
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Bugs</div>
-            <div class="kpi-value">{{ selectedBugs }}</div>
+            <div class="kpi-value">{{ selectedMetrics.bugs }}</div>
             <div class="kpi-hint">For selected date</div>
           </template>
         </Card>
@@ -41,7 +41,7 @@
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Code Smells</div>
-            <div class="kpi-value">{{ selectedCodeSmells }}</div>
+            <div class="kpi-value">{{ selectedMetrics.smells }}</div>
             <div class="kpi-hint">For selected date</div>
           </template>
         </Card>
@@ -49,7 +49,7 @@
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Security Hotspots</div>
-            <div class="kpi-value">{{ selectedSecurityHotspots }}</div>
+            <div class="kpi-value">{{ selectedMetrics.security }}</div>
             <div class="kpi-hint">For selected date</div>
           </template>
         </Card>
@@ -57,7 +57,7 @@
         <Card class="kpi-card kpi-card-total">
           <template #content>
             <div class="kpi-label">Total</div>
-            <div class="kpi-value">{{ selectedTotal }}</div>
+            <div class="kpi-value">{{ selectedMetrics.total }}</div>
             <div class="kpi-hint">Bugs + Code Smells + Security</div>
           </template>
         </Card>
@@ -100,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getSonarProjects, getSonarHistory } from '@/services/sonar-services'
 import type { SonarMetricHistory } from '@/model/sonar-model'
 import { format, eachDayOfInterval } from 'date-fns'
@@ -110,8 +110,7 @@ const dailyBugs = ref<Record<string, number>>({})
 const dailyCodeSmells = ref<Record<string, number>>({})
 const dailySecurityHotspots = ref<Record<string, number>>({})
 const dailyTotals = ref<Record<string, number>>({})
-const issuesPerProject = ref<Record<string, number>>({})
-const issuesPerProjectDaily = ref<Record<string, number>>({})
+const projects = ref<Array<{ key: string; name: string }>>([])
 
 const today = new Date()
 const lastYear = new Date()
@@ -128,12 +127,18 @@ function applyRangePreset(preset: RangePreset) {
   pieBarDate.value = format(today, 'yyyy-MM-dd')
 }
 
-const selectedBugs = computed(() => dailyBugs.value[pieBarDate.value] ?? 0)
-const selectedCodeSmells = computed(() => dailyCodeSmells.value[pieBarDate.value] ?? 0)
-const selectedSecurityHotspots = computed(() => dailySecurityHotspots.value[pieBarDate.value] ?? 0)
-const selectedTotal = computed(
-  () => selectedBugs.value + selectedCodeSmells.value + selectedSecurityHotspots.value,
-)
+const selectedMetrics = computed(() => {
+  const d = pieBarDate.value
+  const bugs = dailyBugs.value[d] ?? 0
+  const smells = dailyCodeSmells.value[d] ?? 0
+  const security = dailySecurityHotspots.value[d] ?? 0
+  return {
+    bugs,
+    smells,
+    security,
+    total: bugs + smells + security,
+  }
+})
 
 const allDates = computed(() =>
   eachDayOfInterval({ start: dateRange.value.start, end: dateRange.value.end }).map(d =>
@@ -159,48 +164,78 @@ const projectDailyBugs = ref<Record<string, Record<string, number>>>({})
 const projectDailySmells = ref<Record<string, Record<string, number>>>({})
 const projectDailySecurity = ref<Record<string, Record<string, number>>>({})
 
-watch(pieBarDate, () => {
-  const updated: Record<string, number> = {}
-  const projects = Object.keys(issuesPerProject.value)
+function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = items.slice()
+  let active = 0
 
-  for (const project of projects) {
-    const key = Object.keys(projectDailyBugs.value).find(k => k.includes(project))
-    if (key) {
-      const bugs = projectDailyBugs.value[key]?.[pieBarDate.value] ?? 0
-      const smells = projectDailySmells.value[key]?.[pieBarDate.value] ?? 0
-      const security = projectDailySecurity.value[key]?.[pieBarDate.value] ?? 0
-      updated[project] = bugs + smells + security
+  return new Promise((resolve, reject) => {
+    const launchNext = () => {
+      if (queue.length === 0 && active === 0) return resolve()
+      while (active < limit && queue.length > 0) {
+        const item = queue.shift() as T
+        active++
+        worker(item)
+          .catch(reject)
+          .finally(() => {
+            active--
+            launchNext()
+          })
+      }
     }
-  }
-
-  issuesPerProjectDaily.value = updated
-})
+    launchNext()
+  })
+}
 
 async function loadData() {
   isLoading.value = true
   try {
     const sonarProjects = await getSonarProjects()
+    projects.value = sonarProjects.map(p => ({ key: p.key, name: p.name }))
     projectDailyBugs.value = {}
     projectDailySmells.value = {}
     projectDailySecurity.value = {}
-    issuesPerProject.value = {}
 
-    for (const sonarProject of sonarProjects) {
+    const bugsTotal: Record<string, number> = {}
+    const smellsTotal: Record<string, number> = {}
+    const securityTotal: Record<string, number> = {}
+    const totals: Record<string, number> = {}
+    const dates = allDates.value
+    const from = format(dateRange.value.start, 'yyyy-MM-dd')
+    const to = format(dateRange.value.end, 'yyyy-MM-dd')
+
+    for (const date of dates) {
+      bugsTotal[date] = 0
+      smellsTotal[date] = 0
+      securityTotal[date] = 0
+      totals[date] = 0
+    }
+
+    const concurrency = 6
+    await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
       try {
         const measures: SonarMetricHistory[] = await getSonarHistory({
           component: sonarProject.key,
           metrics: 'bugs,code_smells,security_hotspots',
-          from: format(dateRange.value.start, 'yyyy-MM-dd'),
-          to: format(dateRange.value.end, 'yyyy-MM-dd'),
+          from,
+          to,
         })
 
-        const metricMap: Record<string, Record<string, number>> = {}
+        const bugsHistoryByDate: Record<string, number> = {}
+        const smellsHistoryByDate: Record<string, number> = {}
+        const securityHistoryByDate: Record<string, number> = {}
+
         for (const metric of measures) {
           for (const entry of metric.history) {
             const date = entry.date.slice(0, 10)
             const value = parseFloat(entry.value || '0')
-            metricMap[date] ??= {}
-            metricMap[date][metric.metric] = value
+
+            if (metric.metric === 'bugs') bugsHistoryByDate[date] = value
+            else if (metric.metric === 'code_smells') smellsHistoryByDate[date] = value
+            else if (metric.metric === 'security_hotspots') securityHistoryByDate[date] = value
           }
         }
 
@@ -209,68 +244,33 @@ async function loadData() {
         const smellsByDate: Record<string, number> = {}
         const securityByDate: Record<string, number> = {}
 
-        for (const date of allDates.value) {
-          const metrics = metricMap[date] ?? {}
-          if (metrics['bugs'] !== undefined) lastBugs = metrics['bugs']
-          if (metrics['code_smells'] !== undefined) lastSmells = metrics['code_smells']
-          if (metrics['security_hotspots'] !== undefined) lastSecurity = metrics['security_hotspots']
+        for (const date of dates) {
+          if (bugsHistoryByDate[date] !== undefined) lastBugs = bugsHistoryByDate[date]
+          if (smellsHistoryByDate[date] !== undefined) lastSmells = smellsHistoryByDate[date]
+          if (securityHistoryByDate[date] !== undefined) lastSecurity = securityHistoryByDate[date]
+
           bugsByDate[date] = lastBugs
           smellsByDate[date] = lastSmells
           securityByDate[date] = lastSecurity
+          bugsTotal[date] += lastBugs
+          smellsTotal[date] += lastSmells
+          securityTotal[date] += lastSecurity
+          totals[date] += lastBugs + lastSmells + lastSecurity
         }
 
         projectDailyBugs.value[sonarProject.key] = bugsByDate
         projectDailySmells.value[sonarProject.key] = smellsByDate
         projectDailySecurity.value[sonarProject.key] = securityByDate
 
-        const firstDate = allDates.value[0]
-        const lastDate = allDates.value[allDates.value.length - 1]
-        const bugsDelta = (bugsByDate[lastDate] ?? 0) - (bugsByDate[firstDate] ?? 0)
-        const smellsDelta = (smellsByDate[lastDate] ?? 0) - (smellsByDate[firstDate] ?? 0)
-        const securityDelta = (securityByDate[lastDate] ?? 0) - (securityByDate[firstDate] ?? 0)
-        const totalIssues = bugsDelta + smellsDelta + securityDelta
-
-        issuesPerProject.value[sonarProject.name] = totalIssues
-
       } catch (err) {
         console.warn(`Error for project ${sonarProject.name}`, err)
       }
-    }
-
-    const bugsTotal: Record<string, number> = {}
-    const smellsTotal: Record<string, number> = {}
-    const securityTotal: Record<string, number> = {}
-    const totals: Record<string, number> = {}
-
-    for (const date of allDates.value) {
-      const bugsSum = Object.values(projectDailyBugs.value).reduce((sum, daily) => sum + (daily[date] || 0), 0)
-      const smellsSum = Object.values(projectDailySmells.value).reduce((sum, daily) => sum + (daily[date] || 0), 0)
-      const securitySum = Object.values(projectDailySecurity.value).reduce((sum, daily) => sum + (daily[date] || 0), 0)
-      bugsTotal[date] = bugsSum
-      smellsTotal[date] = smellsSum
-      securityTotal[date] = securitySum
-      totals[date] = bugsSum + smellsSum + securitySum
-    }
+    })
 
     dailyBugs.value = bugsTotal
     dailyCodeSmells.value = smellsTotal
     dailySecurityHotspots.value = securityTotal
     dailyTotals.value = totals
-
-    const updated: Record<string, number> = {}
-    const sonarProjectsList = Object.keys(issuesPerProject.value)
-
-    for (const project of sonarProjectsList) {
-      const key = Object.keys(projectDailyBugs.value).find(k => k.includes(project))
-      if (key) {
-        const bugs = projectDailyBugs.value[key]?.[pieBarDate.value] ?? 0
-        const smells = projectDailySmells.value[key]?.[pieBarDate.value] ?? 0
-        const security = projectDailySecurity.value[key]?.[pieBarDate.value] ?? 0
-        updated[project] = bugs + smells + security
-      }
-    }
-
-    issuesPerProjectDaily.value = updated
 
   } catch (error) {
     console.error('Error while loading Sonar projects:', error)
@@ -388,11 +388,16 @@ const chartOptions = computed(() => ({
 }))
 
 const barSeries = computed(() => {
-  const projectNames = Object.keys(issuesPerProjectDaily.value)
+  const d = pieBarDate.value
   return [
     {
       name: 'Total',
-      data: projectNames.map(project => issuesPerProjectDaily.value[project] ?? 0),
+      data: projects.value.map(p => {
+        const bugs = projectDailyBugs.value[p.key]?.[d] ?? 0
+        const smells = projectDailySmells.value[p.key]?.[d] ?? 0
+        const security = projectDailySecurity.value[p.key]?.[d] ?? 0
+        return bugs + smells + security
+      }),
     },
   ]
 })
@@ -408,7 +413,7 @@ const barOptions = computed(() => ({
     borderColor: chartGridColor,
   },
   xaxis: {
-    categories: Object.keys(issuesPerProjectDaily.value),
+    categories: projects.value.map(p => p.name),
     labels: {
       style: { colors: chartTextColor },
     },
@@ -428,9 +433,46 @@ const barOptions = computed(() => ({
   },
   legend: { show: false },
   tooltip: {
-    y: {
-      formatter: (val: number) => `${val} issues`
-    }
+    custom: function ({ dataPointIndex }: any) {
+      const project = projects.value[dataPointIndex]
+      const date = pieBarDate.value
+
+      const bugs = project ? projectDailyBugs.value[project.key]?.[date] ?? 0 : 0
+      const smells = project ? projectDailySmells.value[project.key]?.[date] ?? 0 : 0
+      const security = project ? projectDailySecurity.value[project.key]?.[date] ?? 0 : 0
+      const total = bugs + smells + security
+
+      return `
+        <div style="padding:10px; min-width:220px; color:#111827;">
+          <div style="font-weight:700; margin-bottom:8px; color:#111827;">${project?.name ?? ''}</div>
+          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; color:#111827;">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <span style="width:10px; height:10px; background:${roseBugColor}; border-radius:50%; display:inline-block;"></span>
+              Bugs
+            </span>
+            <strong style="color:#111827;">${bugs}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; color:#111827;">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <span style="width:10px; height:10px; background:${roseSmellColor}; border-radius:50%; display:inline-block;"></span>
+              Code Smells
+            </span>
+            <strong style="color:#111827;">${smells}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; color:#111827;">
+            <span style="display:flex; align-items:center; gap:8px;">
+              <span style="width:10px; height:10px; background:${roseSecurityColor}; border-radius:50%; display:inline-block;"></span>
+              Security Hotspots
+            </span>
+            <strong style="color:#111827;">${security}</strong>
+          </div>
+          <div style="border-top:1px solid rgba(0,0,0,.08); padding-top:8px; display:flex; justify-content:space-between; gap:12px;">
+            <span style="font-weight:700; color:${roseTotalColor};">Total</span>
+            <strong style="color:#111827;">${total}</strong>
+          </div>
+        </div>
+      `
+    },
   }
 }))
 

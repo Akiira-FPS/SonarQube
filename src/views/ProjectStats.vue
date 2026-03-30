@@ -271,32 +271,32 @@ const chartOptions = computed(() => ({
       const total = chartData.value.total[dataPointIndex];
       const hotspots = chartData.value.hotspots[dataPointIndex];
       return `
-        <div style="padding:10px; min-width:220px;">
-          <div style="font-weight:700; margin-bottom:8px;">${date}</div>
-          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px;">
+        <div style="padding:10px; min-width:220px; color:#111827;">
+          <div style="font-weight:700; margin-bottom:8px; color:#111827;">${date}</div>
+          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; color:#111827;">
             <span style="display:flex; align-items:center; gap:8px;">
               <span style="width:10px; height:10px; background:${roseBugColor}; border-radius:50%; display:inline-block;"></span>
               Bugs
             </span>
-            <strong>${bugs}</strong>
+            <strong style="color:#111827;">${bugs}</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; color:#111827;">
             <span style="display:flex; align-items:center; gap:8px;">
               <span style="width:10px; height:10px; background:${roseSmellColor}; border-radius:50%; display:inline-block;"></span>
               Code Smells
             </span>
-            <strong>${smells}</strong>
+            <strong style="color:#111827;">${smells}</strong>
           </div>
-          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px;">
+          <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; color:#111827;">
             <span style="display:flex; align-items:center; gap:8px;">
               <span style="width:10px; height:10px; background:${roseSecurityColor}; border-radius:50%; display:inline-block;"></span>
               Security Hotspots
             </span>
-            <strong>${hotspots}</strong>
+            <strong style="color:#111827;">${hotspots}</strong>
           </div>
           <div style="border-top:1px solid rgba(0,0,0,.08); padding-top:8px; display:flex; justify-content:space-between; gap:12px;">
             <span style="font-weight:700; color:${roseTotalColor};">Total</span>
-            <strong>${total}</strong>
+            <strong style="color:#111827;">${total}</strong>
           </div>
         </div>
       `
