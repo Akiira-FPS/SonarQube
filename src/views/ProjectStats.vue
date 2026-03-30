@@ -5,6 +5,20 @@
       <span>Loading statistics...</span>
     </div>
 
+    <div v-else-if="errorMessage" class="error-state">
+      <Card class="error-card">
+        <template #title>
+          <div class="error-title">Erreur pendant le chargement</div>
+        </template>
+        <template #content>
+          <div class="error-details">{{ errorMessage }}</div>
+          <div class="error-actions">
+            <Button label="Réessayer" severity="danger" :outlined="true" @click="loadData(projectKey)" />
+          </div>
+        </template>
+      </Card>
+    </div>
+
     <div v-else class="content">
       <div class="top-header">
         <div class="titles">
@@ -78,12 +92,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { getSonarHistory } from '@/services/sonar-services';
+import { getApiErrorMessage, getSonarHistory } from '@/services/sonar-services';
 import { format, eachDayOfInterval } from 'date-fns';
 
 const route = useRoute();
 const projectKey = ref(route.params.key as string);
 const isLoading = ref(false);
+const errorMessage = ref<string | null>(null);
 
 const today = new Date()
 const lastYear = new Date()
@@ -149,6 +164,7 @@ const focusedDates = computed(() => {
 
 async function loadData(key: string) {
   isLoading.value = true;
+  errorMessage.value = null;
   try {
     const response = await getSonarHistory({
       component: key,
@@ -189,6 +205,7 @@ async function loadData(key: string) {
     dailyTotal.value = total;
   } catch (err) {
     console.error('Metrics loading error:', err);
+    errorMessage.value = getApiErrorMessage(err);
   } finally {
     isLoading.value = false;
   }
@@ -325,6 +342,33 @@ const chartOptions = computed(() => ({
   gap: 1rem;
   min-height: 60vh;
   font-size: 1.05rem;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.error-card {
+  width: min(780px, 100%);
+}
+
+.error-title {
+  font-weight: 900;
+  color: var(--color-accent);
+}
+
+.error-details {
+  white-space: pre-wrap;
+  opacity: 0.95;
+}
+
+.error-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
 }
 
 .content {

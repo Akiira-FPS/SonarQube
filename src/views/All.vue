@@ -5,7 +5,26 @@
       <span>Loading statistics...</span>
     </div>
 
+    <div v-else-if="errorMessage" class="error-state">
+      <Card class="error-card">
+        <template #title>
+          <div class="error-title">Erreur pendant le chargement</div>
+        </template>
+        <template #content>
+          <div class="error-details">{{ errorMessage }}</div>
+          <div class="error-actions">
+            <Button label="Réessayer" severity="danger" :outlined="true" @click="loadData()" />
+          </div>
+        </template>
+      </Card>
+    </div>
+
     <div v-else class="content">
+      <div v-if="warningMessage" class="warning-banner">
+        <div class="warning-title">Attention</div>
+        <div class="warning-details">{{ warningMessage }}</div>
+      </div>
+
       <div class="top-header">
         <div class="titles">
           <h1 class="title">Statistics for all projects</h1>
@@ -101,11 +120,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getSonarProjects, getSonarHistory } from '@/services/sonar-services'
+import { getSonarProjects, getSonarHistory, getApiErrorMessage } from '@/services/sonar-services'
 import type { SonarMetricHistory } from '@/model/sonar-model'
 import { format, eachDayOfInterval } from 'date-fns'
 
 const isLoading = ref(false)
+const errorMessage = ref<string | null>(null)
+const warningMessage = ref<string | null>(null)
 const dailyBugs = ref<Record<string, number>>({})
 const dailyCodeSmells = ref<Record<string, number>>({})
 const dailySecurityHotspots = ref<Record<string, number>>({})
@@ -192,6 +213,11 @@ function runWithConcurrency<T>(
 
 async function loadData() {
   isLoading.value = true
+  errorMessage.value = null
+  warningMessage.value = null
+
+  let firstProjectError: string | null = null
+  let projectErrorCount = 0
   try {
     const sonarProjects = await getSonarProjects()
     projects.value = sonarProjects.map(p => ({ key: p.key, name: p.name }))
@@ -261,8 +287,12 @@ async function loadData() {
         projectDailyBugs.value[sonarProject.key] = bugsByDate
         projectDailySmells.value[sonarProject.key] = smellsByDate
         projectDailySecurity.value[sonarProject.key] = securityByDate
-
       } catch (err) {
+        projectErrorCount++
+        const msg = getApiErrorMessage(err)
+        if (!firstProjectError) {
+          firstProjectError = `Projet "${sonarProject.name}": ${msg}`
+        }
         console.warn(`Error for project ${sonarProject.name}`, err)
       }
     })
@@ -272,8 +302,21 @@ async function loadData() {
     dailySecurityHotspots.value = securityTotal
     dailyTotals.value = totals
 
+    if (firstProjectError) {
+      warningMessage.value =
+        projectErrorCount > 1
+          ? `Certaines métriques n'ont pas pu être chargées (${projectErrorCount} projets). Première erreur: ${firstProjectError}`
+          : `Certaines métriques n'ont pas pu être chargées. Détail: ${firstProjectError}`
+    }
+
   } catch (error) {
     console.error('Error while loading Sonar projects:', error)
+    errorMessage.value = getApiErrorMessage(error)
+    projects.value = []
+    dailyBugs.value = {}
+    dailyCodeSmells.value = {}
+    dailySecurityHotspots.value = {}
+    dailyTotals.value = {}
   } finally {
     isLoading.value = false
   }
@@ -526,6 +569,50 @@ const pieOptions = computed(() => ({
   gap: 1rem;
   min-height: 60vh;
   font-size: 1.05rem;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.error-card {
+  width: min(780px, 100%);
+}
+
+.error-title {
+  font-weight: 900;
+  color: var(--color-accent);
+}
+
+.error-details {
+  white-space: pre-wrap;
+  opacity: 0.95;
+}
+
+.error-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.warning-banner {
+  padding: 0.9rem 1rem;
+  border-left: 4px solid var(--color-accent);
+  background: var(--color-background-soft);
+  border-radius: 10px;
+}
+
+.warning-title {
+  font-weight: 900;
+  color: var(--color-accent);
+  margin-bottom: 0.25rem;
+}
+
+.warning-details {
+  opacity: 0.95;
 }
 
 .content {
