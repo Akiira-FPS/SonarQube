@@ -52,31 +52,51 @@
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Bugs</div>
-            <div class="kpi-value">{{ selectedMetrics.bugs }}</div>
-            <div class="kpi-hint">For selected date</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ selectedMetrics.bugs }}</div>
+              <div class="kpi-delta" :class="deltaClass(selectedMetrics.bugsDelta)">
+                {{ formatDelta(selectedMetrics.bugsDelta) }}
+              </div>
+            </div>
+            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Code Smells</div>
-            <div class="kpi-value">{{ selectedMetrics.smells }}</div>
-            <div class="kpi-hint">For selected date</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ selectedMetrics.smells }}</div>
+              <div class="kpi-delta" :class="deltaClass(selectedMetrics.smellsDelta)">
+                {{ formatDelta(selectedMetrics.smellsDelta) }}
+              </div>
+            </div>
+            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Security Hotspots</div>
-            <div class="kpi-value">{{ selectedMetrics.security }}</div>
-            <div class="kpi-hint">For selected date</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ selectedMetrics.security }}</div>
+              <div class="kpi-delta" :class="deltaClass(selectedMetrics.securityDelta)">
+                {{ formatDelta(selectedMetrics.securityDelta) }}
+              </div>
+            </div>
+            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
         <Card class="kpi-card kpi-card-total">
           <template #content>
             <div class="kpi-label">Total</div>
-            <div class="kpi-value">{{ selectedMetrics.total }}</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ selectedMetrics.total }}</div>
+              <div class="kpi-delta" :class="deltaClass(selectedMetrics.totalDelta)">
+                {{ formatDelta(selectedMetrics.totalDelta) }}
+              </div>
+            </div>
             <div class="kpi-hint">Bugs + Code Smells + Security</div>
           </template>
         </Card>
@@ -150,16 +170,38 @@ function applyRangePreset(preset: RangePreset) {
 
 const selectedMetrics = computed(() => {
   const d = pieBarDate.value
+  const previousDate = format(new Date(new Date(d).getTime() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
   const bugs = dailyBugs.value[d] ?? 0
   const smells = dailyCodeSmells.value[d] ?? 0
   const security = dailySecurityHotspots.value[d] ?? 0
+  const previousBugs = dailyBugs.value[previousDate] ?? 0
+  const previousSmells = dailyCodeSmells.value[previousDate] ?? 0
+  const previousSecurity = dailySecurityHotspots.value[previousDate] ?? 0
+  const total = bugs + smells + security
+  const previousTotal = previousBugs + previousSmells + previousSecurity
   return {
     bugs,
     smells,
     security,
-    total: bugs + smells + security,
+    total,
+    bugsDelta: bugs - previousBugs,
+    smellsDelta: smells - previousSmells,
+    securityDelta: security - previousSecurity,
+    totalDelta: total - previousTotal,
   }
 })
+
+function formatDelta(value: number): string {
+  if (value > 0) return `+${value}`
+  if (value < 0) return `${value}`
+  return '0'
+}
+
+function deltaClass(value: number): string {
+  if (value > 0) return 'kpi-delta-negative'
+  if (value < 0) return 'kpi-delta-positive'
+  return 'kpi-delta-neutral'
+}
 
 const allDates = computed(() =>
   eachDayOfInterval({ start: dateRange.value.start, end: dateRange.value.end }).map(d =>
@@ -362,6 +404,11 @@ const chartOptions = computed(() => ({
   chart: {
     type: 'line',
     toolbar: { show: false },
+    zoom: {
+      enabled: true,
+      type: 'x',
+      autoScaleYaxis: true,
+    },
     foreColor: chartTextColor,
   },
   colors: [roseBugColor, roseSmellColor, roseSecurityColor, roseTotalColor],
@@ -377,7 +424,6 @@ const chartOptions = computed(() => ({
     title: { text: 'Date', style: { color: chartTextColor } },
   },
   yaxis: {
-    min: 0,
     labels: {
       style: { colors: chartTextColor },
     },
@@ -683,6 +729,52 @@ const pieOptions = computed(() => ({
   font-weight: 900;
   line-height: 1.1;
   color: var(--color-heading);
+}
+
+.kpi-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kpi-delta {
+  font-size: 0.85rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  line-height: 1;
+}
+
+.kpi-delta-positive {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.18);
+}
+
+.kpi-delta-negative {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.kpi-delta-neutral {
+  color: #334155;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .kpi-delta-positive {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.28);
+  }
+
+  .kpi-delta-negative {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.3);
+  }
+
+  .kpi-delta-neutral {
+    color: #e2e8f0;
+    background: rgba(148, 163, 184, 0.38);
+  }
 }
 
 .kpi-date {
