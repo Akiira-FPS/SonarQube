@@ -33,30 +33,24 @@
       </div>
 
       <div class="kpi-grid">
-        <Card class="kpi-card">
+        <Card class="kpi-card branch-card">
           <template #content>
             <div class="kpi-label">Branch</div>
-            <Select v-model="selectedBranch" :options="branchOptions" optionLabel="label" optionValue="value" fluid @change="loadData()" />
+            <Select v-model="selectedBranch" :options="branchOptions" optionLabel="label" optionValue="value" size="small" fluid @change="loadData()" />
           </template>
         </Card>
 
-        <Card class="kpi-card">
+        <Card class="kpi-card changes-card">
           <template #content>
-            <div class="kpi-label">Period (chart focus)</div>
+            <div class="kpi-label">Period</div>
             <div class="picker-shortcuts">
-              <Button size="small" label="1 jour" :severity="activePreset === 'day' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'day'" @click="applyRangePreset('day')" />
-              <Button size="small" label="1 semaine" :severity="activePreset === 'week' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'week'" @click="applyRangePreset('week')" />
-              <Button size="small" label="1 mois" :severity="activePreset === 'month' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'month'" @click="applyRangePreset('month')" />
-              <Button size="small" label="1 an" :severity="activePreset === 'year' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'year'" @click="applyRangePreset('year')" />
-              <Button size="small" label="Custom" :severity="activePreset === 'custom' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'custom'" @click="toggleCustomRange" />
+              <Button size="small" label="1 day" :severity="activePreset === 'day' ? 'primary' : 'secondary'" :outlined="activePreset !== 'day'" @click="applyRangePreset('day')" />
+              <Button size="small" label="1 week" :severity="activePreset === 'week' ? 'primary' : 'secondary'" :outlined="activePreset !== 'week'" @click="applyRangePreset('week')" />
+              <Button size="small" label="1 month" :severity="activePreset === 'month' ? 'primary' : 'secondary'" :outlined="activePreset !== 'month'" @click="applyRangePreset('month')" />
+              <Button size="small" label="1 year" :severity="activePreset === 'year' ? 'primary' : 'secondary'" :outlined="activePreset !== 'year'" @click="applyRangePreset('year')" />
+              <Button size="small" label="Custom" :severity="activePreset === 'custom' ? 'primary' : 'secondary'" :outlined="activePreset !== 'custom'" @click="toggleCustomRange" />
               <Popover ref="customRangePopover">
-                <DatePicker v-model="customRange" selectionMode="range" :manualInput="false" :maxDate="today" inline
-                  @update:modelValue="applyCustomRange" />
+                <DatePicker v-model="customRange" selectionMode="range" :manualInput="false" :maxDate="today" inline @update:modelValue="applyCustomRange" />
               </Popover>
             </div>
           </template>
@@ -891,14 +885,31 @@ const pieOptions = computed(() => ({
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: minmax(165px, 0.9fr) minmax(350px, 1.75fr) repeat(4, minmax(185px, 1.08fr));
+  gap: 0.65rem;
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.kpi-card {
+  min-width: 0;
 }
 
 .kpi-card :deep(.p-card-body) {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  height: 100%;
+  gap: 0.3rem;
+  padding: 0.85rem 0.95rem;
+}
+
+.kpi-card :deep(.p-card-content) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  gap: 0.45rem;
 }
 
 .kpi-card-total :deep(.p-card-body) {
@@ -913,35 +924,38 @@ const pieOptions = computed(() => ({
 }
 
 .kpi-label {
-  font-size: 0.9rem;
-  font-weight: 650;
+  font-size: 0.8rem;
+  font-weight: 700;
   opacity: 0.9;
   color: var(--color-heading);
 }
 
 .kpi-value {
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1.1;
+  font-size: 1.72rem;
+  font-weight: 850;
+  line-height: 1;
   color: var(--color-heading);
 }
 
 .kpi-value-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  min-height: 2.15rem;
+  white-space: nowrap;
 }
 
 .kpi-change-breakdown {
   display: flex;
+  flex-wrap: nowrap;
   gap: 0.25rem;
 }
 
 .kpi-delta {
-  font-size: 0.85rem;
+  font-size: 0.76rem;
   font-weight: 800;
   border-radius: 999px;
-  padding: 0.2rem 0.5rem;
+  padding: 0.18rem 0.42rem;
   line-height: 1;
 }
 
@@ -958,23 +972,6 @@ const pieOptions = computed(() => ({
 .kpi-delta-neutral {
   color: #334155;
   background: rgba(148, 163, 184, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  .kpi-delta-positive {
-    color: #86efac;
-    background: rgba(34, 197, 94, 0.28);
-  }
-
-  .kpi-delta-negative {
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.3);
-  }
-
-  .kpi-delta-neutral {
-    color: #e2e8f0;
-    background: rgba(148, 163, 184, 0.38);
-  }
 }
 
 .kpi-date {
@@ -1013,12 +1010,43 @@ const pieOptions = computed(() => ({
 
 .picker-shortcuts {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 1rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0;
+  overflow: visible;
+}
+
+.picker-shortcuts :deep(.p-button) {
+  flex: 0 0 auto;
+  min-height: 2.1rem;
+  padding: 0.38rem 0.52rem;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
 @media (prefers-color-scheme: dark) {
+  .kpi-delta-positive {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.28);
+  }
+
+  .kpi-delta-negative {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.3);
+  }
+
+  .kpi-delta-neutral {
+    color: #e2e8f0;
+    background: rgba(148, 163, 184, 0.38);
+  }
+
   .picker-shortcuts :deep(.p-button) {
     color: var(--vt-c-gray-50) !important;
     border-color: var(--color-border) !important;
@@ -1045,12 +1073,6 @@ const pieOptions = computed(() => ({
     color: var(--vt-c-gray-50) !important;
     border-color: var(--color-border-hover) !important;
   }
-}
-
-.chart-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
 }
 
 @media (min-width: 992px) {
