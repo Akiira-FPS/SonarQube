@@ -47,6 +47,12 @@
                 :outlined="activePreset !== 'month'" @click="applyRangePreset('month')" />
               <Button size="small" label="1 an" :severity="activePreset === 'year' ? 'primary' : 'secondary'"
                 :outlined="activePreset !== 'year'" @click="applyRangePreset('year')" />
+              <Button size="small" label="Custom" :severity="activePreset === 'custom' ? 'primary' : 'secondary'"
+                :outlined="activePreset !== 'custom'" @click="toggleCustomRange" />
+              <Popover ref="customRangePopover">
+                <DatePicker v-model="customRange" selectionMode="range" :manualInput="false" :maxDate="today" inline
+                  @update:modelValue="applyCustomRange" />
+              </Popover>
             </div>
           </template>
         </Card>
@@ -89,7 +95,7 @@
           <div class="card-title">Total issues (trend)</div>
         </template>
         <template #content>
-          <ApexChart type="line" height="580px" width="100%" :options="chartOptions" :series="chartOptions.series" />
+          <ApexChart :key="chartKey" type="line" height="580px" width="100%" :options="chartOptions" :series="chartOptions.series" />
         </template>
       </Card>
     </div>
@@ -115,12 +121,44 @@ const today = new Date()
 const lastYear = new Date()
 lastYear.setFullYear(today.getFullYear() - 1)
 
+type DateRange = { start: Date; end: Date }
+type RangePreset = 'day' | 'week' | 'month' | 'year' | 'custom'
+
 const dateRange = ref({
   start: lastYear,
   end: today,
 })
-type RangePreset = 'day' | 'week' | 'month' | 'year'
+const viewRange = ref<DateRange>({ start: lastYear, end: today })
+const zoomRange = ref<DateRange | null>(null)
 const activePreset = ref<RangePreset>('year')
+const presetBeforeZoom = ref<RangePreset | null>(null)
+const customRange = ref<(Date | null)[] | null>(null)
+const customRangePopover = ref<{ toggle: (event: Event) => void; hide: () => void } | null>(null)
+const chartKey = ref(0)
+
+function normalizeDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+function subtractPeriod(date: Date, preset: Exclude<RangePreset, 'custom'>): Date {
+  const start = new Date(date)
+  if (preset === 'day') start.setDate(start.getDate() - 1)
+  if (preset === 'week') start.setDate(start.getDate() - 7)
+  if (preset === 'month') start.setMonth(start.getMonth() - 1)
+  if (preset === 'year') start.setFullYear(start.getFullYear() - 1)
+  return start
+}
+
+function containsRange(outer: DateRange, inner: DateRange): boolean {
+  return outer.start.getTime() <= inner.start.getTime() && outer.end.getTime() >= inner.end.getTime()
+}
+
+function expandRange(outer: DateRange, inner: DateRange): DateRange {
+  return {
+    start: outer.start.getTime() <= inner.start.getTime() ? outer.start : inner.start,
+    end: outer.end.getTime() >= inner.end.getTime() ? outer.end : inner.end,
+  }
+}
 
 const allDates = computed(() =>
   eachDayOfInterval({ start: dateRange.value.start, end: dateRange.value.end }).map(d =>
@@ -128,15 +166,14 @@ const allDates = computed(() =>
   )
 );
 
-const firstDate = computed(() => allDates.value[0] ?? '')
-const lastDate = computed(() => {
-  if (allDates.value.length === 0) return ''
-  return allDates.value[allDates.value.length - 1]
+const focusedDates = computed(() => {
+  const start = format(viewRange.value.start, 'yyyy-MM-dd')
+  const end = format(viewRange.value.end, 'yyyy-MM-dd')
+  return allDates.value.filter((date) => date >= start && date <= end)
 })
 
-function applyRangePreset(preset: RangePreset) {
-  activePreset.value = preset
-}
+const firstDate = computed(() => focusedDates.value[0] ?? '')
+const lastDate = computed(() => format((zoomRange.value ?? viewRange.value).end, 'yyyy-MM-dd'))
 
 const dailyBugs = ref<Record<string, number>>({})
 const dailySmells = ref<Record<string, number>>({})
@@ -159,19 +196,89 @@ const totalDeltaLabel = computed(() => {
   return `${v > 0 ? '+' : ''}${v}`
 })
 
-const focusedDates = computed(() => {
-  const end = new Date(today)
-  const start = new Date(end)
+async function applyRangePreset(preset: Exclude<RangePreset, 'custom'>) {
+  const end = normalizeDate(today)
+  const range = { start: normalizeDate(subtractPeriod(end, preset)), end }
 
-  if (activePreset.value === 'day') start.setDate(start.getDate() - 1)
-  if (activePreset.value === 'week') start.setDate(start.getDate() - 7)
-  if (activePreset.value === 'month') start.setMonth(start.getMonth() - 1)
-  if (activePreset.value === 'year') start.setFullYear(start.getFullYear() - 1)
+  activePreset.value = preset
+  presetBeforeZoom.value = null
+  customRange.value = null
+  viewRange.value = range
+  zoomRange.value = null
+  chartKey.value++
 
-  const startKey = format(start, 'yyyy-MM-dd')
-  const endKey = format(end, 'yyyy-MM-dd')
-  return allDates.value.filter(date => date >= startKey && date <= endKey)
-})
+  if (!containsRange(dateRange.value, range)) {
+    dateRange.value = expandRange(dateRange.value, range)
+    await loadData(projectKey.value)
+  }
+}
+
+function toggleCustomRange(event: Event) {
+  customRangePopover.value?.toggle(event)
+}
+
+async function applyCustomRange(value: Date | Date[] | (Date | null)[] | null | undefined) {
+  if (!Array.isArray(value) || !value[0] || !value[1]) return
+
+  const first = normalizeDate(value[0])
+  const second = normalizeDate(value[1])
+  const range =
+    first.getTime() <= second.getTime()
+      ? { start: first, end: second }
+      : { start: second, end: first }
+
+  activePreset.value = 'custom'
+  presetBeforeZoom.value = null
+  viewRange.value = range
+  zoomRange.value = null
+  chartKey.value++
+  customRangePopover.value?.hide()
+
+  if (!containsRange(dateRange.value, range)) {
+    dateRange.value = expandRange(dateRange.value, range)
+    await loadData(projectKey.value)
+  }
+}
+
+function clampToView(date: Date): Date {
+  const timestamp = date.getTime()
+  if (timestamp < viewRange.value.start.getTime()) return viewRange.value.start
+  if (timestamp > viewRange.value.end.getTime()) return viewRange.value.end
+  return date
+}
+
+function handleChartZoom(_chartContext: unknown, { xaxis }: { xaxis?: { min?: number; max?: number } }) {
+  if (!Number.isFinite(xaxis?.min) || !Number.isFinite(xaxis?.max)) return
+
+  const start = normalizeDate(clampToView(new Date(xaxis!.min!)))
+  const end = normalizeDate(clampToView(new Date(xaxis!.max!)))
+  if (start.getTime() > end.getTime()) return
+
+  if (zoomRange.value === null) {
+    presetBeforeZoom.value = activePreset.value
+  }
+
+  activePreset.value = 'custom'
+  customRange.value = [start, end]
+  zoomRange.value = { start, end }
+}
+
+function handleChartResetZoom() {
+  zoomRange.value = null
+
+  if (presetBeforeZoom.value) {
+    activePreset.value = presetBeforeZoom.value
+    if (presetBeforeZoom.value !== 'custom') customRange.value = null
+    presetBeforeZoom.value = null
+  }
+
+  return {
+    xaxis: {
+      min: viewRange.value.start.getTime(),
+      max: viewRange.value.end.getTime(),
+    },
+  }
+}
 
 async function loadData(key: string) {
   isLoading.value = true;
@@ -234,6 +341,8 @@ watch(() => route.params.key, newKey => {
     projectKey.value = newKey;
     branches.value = [];
     selectedBranch.value = '';
+    zoomRange.value = null;
+    chartKey.value++;
     loadData(newKey);
   }
 });
@@ -274,6 +383,15 @@ const chartOptions = computed(() => ({
   chart: {
     type: 'line',
     toolbar: { show: false },
+    zoom: {
+      enabled: true,
+      type: 'x',
+      autoScaleYaxis: true,
+    },
+    events: {
+      zoomed: handleChartZoom,
+      beforeResetZoom: handleChartResetZoom,
+    },
     foreColor: chartTextColor,
   },
   colors: [roseBugColor, roseSmellColor, roseSecurityColor, roseTotalColor],
