@@ -30,14 +30,37 @@ export function getApiErrorMessage(error: unknown): string {
 export async function getSonarHistory(
   filters: SonarHistoryFilters,
 ): Promise<Array<SonarMetricHistory>> {
-  return axios
-    .get(`/api/measures/search_history`, {
-      params: filters,
+  const measures: SonarMetricHistory[] = []
+  let page = 1
+  let hasNextPage = true
+
+  while (hasNextPage) {
+    const response = await axios.get('/api/measures/search_history', {
+      params: {
+        ...filters,
+        p: page,
+      },
       headers: {
-        Authorization: `Basic ${btoa(token + ':')}`,
+        Authorization: `Bearer ${token}`,
       },
     })
-    .then((res) => res.data.measures)
+
+    for (const metric of response.data.measures as SonarMetricHistory[]) {
+      const existing = measures.find(item => item.metric === metric.metric)
+
+      if (existing) {
+        existing.history.push(...metric.history)
+      } else {
+        measures.push(metric)
+      }
+    }
+
+    const { pageIndex, pageSize, total } = response.data.paging
+    hasNextPage = pageIndex * pageSize < total
+    page++
+  }
+
+  return measures
 }
 
 export async function getSonarProjects(): Promise<Array<SonarProject>> {
