@@ -30,6 +30,13 @@
       <div class="kpi-grid">
         <Card class="kpi-card">
           <template #content>
+            <div class="kpi-label">Branch</div>
+            <Select v-model="selectedBranch" :options="branches" optionLabel="name" optionValue="name" fluid @change="loadData(projectKey)" />
+          </template>
+        </Card>
+
+        <Card class="kpi-card">
+          <template #content>
             <div class="kpi-label">Period (chart focus)</div>
             <div class="picker-shortcuts">
               <Button size="small" label="1 jour" :severity="activePreset === 'day' ? 'primary' : 'secondary'"
@@ -92,10 +99,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { getApiErrorMessage, getSonarHistory } from '@/services/sonar-services';
+import { getApiErrorMessage, getSonarHistory, getSonarBranches } from '@/services/sonar-services';
+import type { SonarBranch } from '@/model/sonar-model';
 import { format, eachDayOfInterval } from 'date-fns';
 
 const route = useRoute();
+
+const branches = ref<SonarBranch[]>([])
+const selectedBranch = ref('')
 const projectKey = ref(route.params.key as string);
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
@@ -166,9 +177,16 @@ async function loadData(key: string) {
   isLoading.value = true;
   errorMessage.value = null;
   try {
+    if (branches.value.length === 0) {
+      branches.value = await getSonarBranches(key)
+      selectedBranch.value =
+        branches.value.find((branch) => branch.isMain)?.name ?? branches.value[0]?.name ?? ''
+    }
+
     const response = await getSonarHistory({
       component: key,
       metrics: 'bugs,code_smells,security_hotspots',
+      branch: selectedBranch.value || undefined,
       from: format(dateRange.value.start, 'yyyy-MM-dd'),
       to: format(dateRange.value.end, 'yyyy-MM-dd'),
     });
@@ -214,6 +232,8 @@ async function loadData(key: string) {
 watch(() => route.params.key, newKey => {
   if (typeof newKey === 'string') {
     projectKey.value = newKey;
+    branches.value = [];
+    selectedBranch.value = '';
     loadData(newKey);
   }
 });

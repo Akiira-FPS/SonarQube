@@ -3,6 +3,12 @@ export interface SonarHistoryFilters {
   metrics: string
   from?: string
   to?: string
+  branch?: string
+}
+
+export interface SonarBranch {
+  name: string
+  isMain: boolean
 }
 
 export interface MetricValue {

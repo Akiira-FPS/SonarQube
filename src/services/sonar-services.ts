@@ -1,4 +1,4 @@
-import type { SonarHistoryFilters, SonarMetricHistory, SonarProject } from '@/model/sonar-model'
+import type { SonarBranch, SonarHistoryFilters, SonarMetricHistory, SonarProject } from '@/model/sonar-model'
 import axios from 'axios'
 
 const token = import.meta.env.VITE_SONAR_TOKEN
@@ -121,4 +121,17 @@ export async function getSonarProjects(): Promise<Array<SonarProject>> {
   }))
 
   return filterRecentProjects(simplifiedProjects)
+}
+
+export async function getSonarBranches(project: string): Promise<Array<SonarBranch>> {
+  return axios
+    .get('/api/project_branches/list', {
+      params: {
+        project,
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+    .then((res) => res.data.branches)
 }

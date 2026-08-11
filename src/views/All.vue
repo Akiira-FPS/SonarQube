@@ -35,6 +35,13 @@
       <div class="kpi-grid">
         <Card class="kpi-card">
           <template #content>
+            <div class="kpi-label">Branch</div>
+            <Select v-model="selectedBranch" :options="branchOptions" optionLabel="label" optionValue="value" fluid @change="loadData()" />
+          </template>
+        </Card>
+
+        <Card class="kpi-card">
+          <template #content>
             <div class="kpi-label">Period (chart focus)</div>
             <div class="picker-shortcuts">
               <Button size="small" label="1 jour" :severity="activePreset === 'day' ? 'primary' : 'secondary'"
@@ -140,8 +147,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getSonarProjects, getSonarHistory, getApiErrorMessage } from '@/services/sonar-services'
-import type { SonarMetricHistory } from '@/model/sonar-model'
+import { getSonarProjects, getSonarHistory, getSonarBranches, getApiErrorMessage } from '@/services/sonar-services'
+import type { SonarMetricHistory, SonarBranch } from '@/model/sonar-model'
 import { format, eachDayOfInterval } from 'date-fns'
 
 const isLoading = ref(false)
@@ -152,6 +159,11 @@ const dailyCodeSmells = ref<Record<string, number>>({})
 const dailySecurityHotspots = ref<Record<string, number>>({})
 const dailyTotals = ref<Record<string, number>>({})
 const projects = ref<Array<{ key: string; name: string }>>([])
+
+const MAIN_BRANCH_VALUE = '__main__'
+const branchOptions = ref([{ label: 'Main branches', value: MAIN_BRANCH_VALUE }])
+const selectedBranch = ref(MAIN_BRANCH_VALUE)
+const projectBranches = ref<Record<string, SonarBranch[]>>({})
 
 const today = new Date()
 const lastYear = new Date()
@@ -262,7 +274,41 @@ async function loadData() {
   let projectErrorCount = 0
   try {
     const sonarProjects = await getSonarProjects()
-    projects.value = sonarProjects.map(p => ({ key: p.key, name: p.name }))
+    const concurrency = 6
+
+    if (Object.keys(projectBranches.value).length === 0) {
+      const branchesByProject: Record<string, SonarBranch[]> = {}
+
+      await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
+        branchesByProject[sonarProject.key] = await getSonarBranches(sonarProject.key)
+      })
+
+      projectBranches.value = branchesByProject
+
+      const branchNames = Array.from(
+        new Set(
+          Object.values(branchesByProject).flatMap((branches) =>
+            branches.map((branch) => branch.name),
+          ),
+        ),
+      ).sort((a, b) => a.localeCompare(b))
+
+      branchOptions.value = [
+        { label: 'Main branches', value: MAIN_BRANCH_VALUE },
+        ...branchNames.map((name) => ({ label: name, value: name })),
+      ]
+    }
+
+    const targetProjects =
+      selectedBranch.value === MAIN_BRANCH_VALUE
+        ? sonarProjects
+        : sonarProjects.filter((sonarProject) =>
+            projectBranches.value[sonarProject.key]?.some(
+              (branch) => branch.name === selectedBranch.value,
+            ),
+          )
+
+    projects.value = targetProjects.map(project => ({ key: project.key, name: project.name }))
     projectDailyBugs.value = {}
     projectDailySmells.value = {}
     projectDailySecurity.value = {}
@@ -282,12 +328,17 @@ async function loadData() {
       totals[date] = 0
     }
 
-    const concurrency = 6
-    await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
+    await runWithConcurrency(targetProjects, concurrency, async (sonarProject) => {
       try {
+        const branch =
+          selectedBranch.value === MAIN_BRANCH_VALUE
+            ? projectBranches.value[sonarProject.key]?.find((item) => item.isMain)?.name
+            : selectedBranch.value
+
         const measures: SonarMetricHistory[] = await getSonarHistory({
           component: sonarProject.key,
           metrics: 'bugs,code_smells,security_hotspots',
+          branch: branch || undefined,
           from,
           to,
         })
