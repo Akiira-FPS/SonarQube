@@ -4,27 +4,7 @@ import axios from 'axios'
 const token = import.meta.env.VITE_SONAR_TOKEN
 
 export function getApiErrorMessage(error: unknown): string {
-  const e = error as any
-  if (!e) return 'Erreur API inconnue'
-
-  // Axios: e.response?.status et e.response?.data peuvent contenir le message
-  const status = e.response?.status
-  const data = e.response?.data
-  const dataMessage =
-    data?.message ??
-    data?.error ??
-    data?.detail ??
-    data?.reason ??
-    data?.errors?.[0]?.message
-
-  if (status) {
-    if (dataMessage) return `Erreur API (${status}) : ${String(dataMessage)}`
-    return `Erreur API (${status})`
-  }
-
-  if (typeof e === 'string') return e
-  if (e.message) return String(e.message)
-  return 'Erreur API inconnue'
+  return error instanceof Error ? error.message : 'Erreur API inconnue'
 }
 
 function simplifyProjectName(name: string): string {
@@ -115,10 +95,12 @@ export async function getSonarProjects(): Promise<Array<SonarProject>> {
     page++
   }
 
-  const simplifiedProjects = projects.map(project => ({
-    ...project,
-    name: simplifyProjectName(project.name),
-  }))
+  const simplifiedProjects = projects
+    .map(project => ({
+      ...project,
+      name: simplifyProjectName(project.name),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return filterRecentProjects(simplifiedProjects)
 }

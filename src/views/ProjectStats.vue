@@ -124,9 +124,6 @@ import type { SonarBranch } from '@/model/sonar-model';
 import { format, eachDayOfInterval } from 'date-fns';
 
 const route = useRoute();
-
-const branches = ref<SonarBranch[]>([])
-const selectedBranch = ref('')
 const projectKey = ref(route.params.key as string);
 const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
@@ -137,6 +134,7 @@ lastYear.setFullYear(today.getFullYear() - 1)
 
 type DateRange = { start: Date; end: Date }
 type RangePreset = 'day' | 'week' | 'month' | 'year' | 'custom'
+type ApexTooltipContext = { dataPointIndex: number }
 
 const dateRange = ref({
   start: lastYear,
@@ -149,6 +147,9 @@ const presetBeforeZoom = ref<RangePreset | null>(null)
 const customRange = ref<(Date | null)[] | null>(null)
 const customRangePopover = ref<{ toggle: (event: Event) => void; hide: () => void } | null>(null)
 const chartKey = ref(0)
+
+const branches = ref<SonarBranch[]>([])
+const selectedBranch = ref('')
 
 function normalizeDate(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -197,8 +198,8 @@ const lastDate = computed(() => format((zoomRange.value ?? viewRange.value).end,
 
 const dailyBugs = ref<Record<string, number>>({})
 const dailySmells = ref<Record<string, number>>({})
+const dailyHotspots = ref<Record<string, number>>({})
 const dailyTotal = ref<Record<string, number>>({})
-const dailyHotspots = ref<Record<string, number>>({});
 
 const currentBugs = computed(() => (lastDate.value ? dailyBugs.value[lastDate.value] : 0) ?? 0)
 const currentSmells = computed(() => (lastDate.value ? dailySmells.value[lastDate.value] : 0) ?? 0)
@@ -321,6 +322,7 @@ function handleChartResetZoom() {
 async function loadData(key: string) {
   isLoading.value = true;
   errorMessage.value = null;
+
   try {
     if (branches.value.length === 0) {
       branches.value = await getSonarBranches(key)
@@ -336,7 +338,7 @@ async function loadData(key: string) {
       to: format(dateRange.value.end, 'yyyy-MM-dd'),
     });
 
-    const grouped = response.reduce((acc: any, metric: any) => {
+    const grouped = response.reduce<Record<string, Record<string, number>>>((acc, metric) => {
       for (const entry of metric.history) {
         const date = entry.date.slice(0, 10);
         acc[date] ??= {};
@@ -457,7 +459,7 @@ const chartOptions = computed(() => ({
   },
   tooltip: {
     shared: true,
-    custom: function ({ dataPointIndex }: any) {
+    custom: function ({ dataPointIndex }: ApexTooltipContext) {
       const date = chartData.value.categories[dataPointIndex];
       const bugs = chartData.value.bugs[dataPointIndex];
       const smells = chartData.value.smells[dataPointIndex];

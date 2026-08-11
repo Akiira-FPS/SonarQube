@@ -151,6 +151,8 @@ import { getSonarProjects, getSonarHistory, getSonarBranches, getApiErrorMessage
 import type { SonarMetricHistory, SonarBranch } from '@/model/sonar-model'
 import { format, eachDayOfInterval } from 'date-fns'
 
+defineOptions({ name: 'AllStats' })
+
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
 const warningMessage = ref<string | null>(null)
@@ -160,13 +162,14 @@ const dailySecurityHotspots = ref<Record<string, number>>({})
 const dailyTotals = ref<Record<string, number>>({})
 const projects = ref<Array<{ key: string; name: string }>>([])
 
+type DateRange = { start: Date; end: Date }
+type RangePreset = 'day' | 'week' | 'month' | 'year' | 'custom'
+type ApexTooltipContext = { dataPointIndex: number }
+
 const MAIN_BRANCH_VALUE = '__main__'
 const branchOptions = ref([{ label: 'Main branches', value: MAIN_BRANCH_VALUE }])
 const selectedBranch = ref(MAIN_BRANCH_VALUE)
 const projectBranches = ref<Record<string, SonarBranch[]>>({})
-
-type DateRange = { start: Date; end: Date }
-type RangePreset = 'day' | 'week' | 'month' | 'year' | 'custom'
 
 const today = new Date()
 const lastYear = new Date()
@@ -203,6 +206,18 @@ function expandRange(outer: DateRange, inner: DateRange): DateRange {
     end: outer.end.getTime() >= inner.end.getTime() ? outer.end : inner.end,
   }
 }
+
+const allDates = computed(() =>
+  eachDayOfInterval({ start: dateRange.value.start, end: dateRange.value.end }).map(d =>
+    format(d, 'yyyy-MM-dd')
+  )
+)
+
+const focusedDates = computed(() => {
+  const start = format(viewRange.value.start, 'yyyy-MM-dd')
+  const end = format(viewRange.value.end, 'yyyy-MM-dd')
+  return allDates.value.filter((date) => date >= start && date <= end)
+})
 
 const changeDates = computed(() => {
   const range = zoomRange.value ?? viewRange.value
@@ -271,18 +286,6 @@ const selectedMetrics = computed(() => {
     totalAdded: bugsChanges.added + smellsChanges.added + securityChanges.added,
     totalRemoved: bugsChanges.removed + smellsChanges.removed + securityChanges.removed,
   }
-})
-
-const allDates = computed(() =>
-  eachDayOfInterval({ start: dateRange.value.start, end: dateRange.value.end }).map(d =>
-    format(d, 'yyyy-MM-dd')
-  )
-)
-
-const focusedDates = computed(() => {
-  const start = format(viewRange.value.start, 'yyyy-MM-dd')
-  const end = format(viewRange.value.end, 'yyyy-MM-dd')
-  return allDates.value.filter((date) => date >= start && date <= end)
 })
 
 async function applyRangePreset(preset: Exclude<RangePreset, 'custom'>) {
@@ -406,13 +409,14 @@ async function loadData() {
 
   let firstProjectError: string | null = null
   let projectErrorCount = 0
+
   try {
     const sonarProjects = await getSonarProjects()
-    const concurrency = 6
 
     if (Object.keys(projectBranches.value).length === 0) {
       const branchesByProject: Record<string, SonarBranch[]> = {}
-
+      
+      const concurrency = 6
       await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
         branchesByProject[sonarProject.key] = await getSonarBranches(sonarProject.key)
       })
@@ -436,11 +440,7 @@ async function loadData() {
     const targetProjects =
       selectedBranch.value === MAIN_BRANCH_VALUE
         ? sonarProjects
-        : sonarProjects.filter((sonarProject) =>
-            projectBranches.value[sonarProject.key]?.some(
-              (branch) => branch.name === selectedBranch.value,
-            ),
-          )
+        : sonarProjects.filter((sonarProject) => projectBranches.value[sonarProject.key]?.some((branch) => branch.name === selectedBranch.value))
 
     projects.value = targetProjects.map(project => ({ key: project.key, name: project.name }))
     projectDailyBugs.value = {}
@@ -462,6 +462,7 @@ async function loadData() {
       totals[date] = 0
     }
 
+    const concurrency = 6
     await runWithConcurrency(targetProjects, concurrency, async (sonarProject) => {
       try {
         const branch =
@@ -535,7 +536,6 @@ async function loadData() {
           ? `Certaines métriques n'ont pas pu être chargées (${projectErrorCount} projets). Première erreur: ${firstProjectError}`
           : `Certaines métriques n'ont pas pu être chargées. Détail: ${firstProjectError}`
     }
-
   } catch (error) {
     console.error('Error while loading Sonar projects:', error)
     errorMessage.value = getApiErrorMessage(error)
@@ -619,7 +619,7 @@ const chartOptions = computed(() => ({
   },
   tooltip: {
     shared: true,
-    custom: function ({ dataPointIndex }: any) {
+    custom: function ({ dataPointIndex }: ApexTooltipContext) {
       const date = chartData.value.categories[dataPointIndex]
       const bugs = chartData.value.bugs[dataPointIndex]
       const smells = chartData.value.smells[dataPointIndex]
@@ -711,7 +711,7 @@ const barOptions = computed(() => ({
   },
   legend: { show: false },
   tooltip: {
-    custom: function ({ dataPointIndex }: any) {
+    custom: function ({ dataPointIndex }: ApexTooltipContext) {
       const project = projects.value[dataPointIndex]
       const date = pieBarDate.value
 
