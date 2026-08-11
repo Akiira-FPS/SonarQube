@@ -27,6 +27,35 @@ export function getApiErrorMessage(error: unknown): string {
   return 'Erreur API inconnue'
 }
 
+function simplifyProjectName(name: string): string {
+  return name.trim().match(/^(.+?)\s*\([^)]*\)$/)?.[1] ?? name
+}
+
+function activityCutoff(): string {
+  const cutoff = new Date()
+  cutoff.setMonth(cutoff.getMonth() - 12)
+  return cutoff.toISOString().slice(0, 10)
+}
+
+async function hasRecentAnalysis(project: string): Promise<boolean> {
+  const response = await axios.get('/api/project_analyses/search', {
+    params: {
+      project,
+      from: activityCutoff(),
+    },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+
+  return (response.data.paging?.total ?? 0) > 0
+}
+
+async function filterRecentProjects(projects: SonarProject[]): Promise<SonarProject[]> {
+  const keep = await Promise.all(projects.map(project => hasRecentAnalysis(project.key)))
+  return projects.filter((_, index) => keep[index])
+}
+
 export async function getSonarHistory(
   filters: SonarHistoryFilters,
 ): Promise<Array<SonarMetricHistory>> {
@@ -64,11 +93,32 @@ export async function getSonarHistory(
 }
 
 export async function getSonarProjects(): Promise<Array<SonarProject>> {
-  return axios
-    .get(`/api/projects/search`, {
+  const projects: SonarProject[] = []
+  let page = 1
+  let hasNextPage = true
+
+  while (hasNextPage) {
+    const response = await axios.get('/api/components/search', {
+      params: {
+        qualifiers: 'TRK',
+        p: page,
+      },
       headers: {
-        Authorization: `Basic ${btoa(token + ':')}`,
+        Authorization: `Bearer ${token}`,
       },
     })
-    .then((res) => res.data.components)
+
+    projects.push(...response.data.components)
+
+    const { pageIndex, pageSize, total } = response.data.paging
+    hasNextPage = pageIndex * pageSize < total
+    page++
+  }
+
+  const simplifiedProjects = projects.map(project => ({
+    ...project,
+    name: simplifyProjectName(project.name),
+  }))
+
+  return filterRecentProjects(simplifiedProjects)
 }
