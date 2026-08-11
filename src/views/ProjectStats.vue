@@ -60,32 +60,52 @@
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Bugs</div>
-            <div class="kpi-value">{{ currentBugs }}</div>
-            <div class="kpi-hint">Last date: {{ lastDate }}</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ currentBugs }}</div>
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ bugsChanges.added }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ bugsChanges.removed }}</span>
+              </div>
+            </div>
           </template>
         </Card>
 
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Code Smells</div>
-            <div class="kpi-value">{{ currentSmells }}</div>
-            <div class="kpi-hint">Last date: {{ lastDate }}</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ currentSmells }}</div>
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ smellsChanges.added }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ smellsChanges.removed }}</span>
+              </div>
+            </div>
           </template>
         </Card>
 
         <Card class="kpi-card">
           <template #content>
             <div class="kpi-label">Security Hotspots</div>
-            <div class="kpi-value">{{ currentHotspots }}</div>
-            <div class="kpi-hint">Last date: {{ lastDate }}</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ currentHotspots }}</div>
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ hotspotsChanges.added }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ hotspotsChanges.removed }}</span>
+              </div>
+            </div>
           </template>
         </Card>
 
         <Card class="kpi-card kpi-card-total">
           <template #content>
             <div class="kpi-label">Total</div>
-            <div class="kpi-value">{{ currentTotal }}</div>
-            <div class="kpi-hint">Delta vs start: {{ totalDeltaLabel }}</div>
+            <div class="kpi-value-row">
+              <div class="kpi-value">{{ currentTotal }}</div>
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ totalChanges.added }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ totalChanges.removed }}</span>
+              </div>
+            </div>
           </template>
         </Card>
       </div>
@@ -172,7 +192,13 @@ const focusedDates = computed(() => {
   return allDates.value.filter((date) => date >= start && date <= end)
 })
 
-const firstDate = computed(() => focusedDates.value[0] ?? '')
+const changeDates = computed(() => {
+  const range = zoomRange.value ?? viewRange.value
+  const start = format(range.start, 'yyyy-MM-dd')
+  const end = format(range.end, 'yyyy-MM-dd')
+  return allDates.value.filter((date) => date >= start && date <= end)
+})
+
 const lastDate = computed(() => format((zoomRange.value ?? viewRange.value).end, 'yyyy-MM-dd'))
 
 const dailyBugs = ref<Record<string, number>>({})
@@ -185,16 +211,34 @@ const currentSmells = computed(() => (lastDate.value ? dailySmells.value[lastDat
 const currentHotspots = computed(() => (lastDate.value ? dailyHotspots.value[lastDate.value] : 0) ?? 0)
 const currentTotal = computed(() => (lastDate.value ? dailyTotal.value[lastDate.value] : 0) ?? 0)
 
-const totalDelta = computed(() => {
-  if (!firstDate.value || !lastDate.value) return 0
-  return (dailyTotal.value[lastDate.value] ?? 0) - (dailyTotal.value[firstDate.value] ?? 0)
-})
+function metricChanges(values: Record<string, number>) {
+  const periodDates = changeDates.value
+  if (periodDates.length < 2) return { added: 0, removed: 0 }
 
-const totalDeltaLabel = computed(() => {
-  const v = totalDelta.value
-  if (v === 0) return '0'
-  return `${v > 0 ? '+' : ''}${v}`
-})
+  let previous = values[periodDates[0]] ?? 0
+  let added = 0
+  let removed = 0
+
+  for (const date of periodDates.slice(1)) {
+    const current = values[date] ?? previous
+    const delta = current - previous
+
+    if (delta > 0) added += delta
+    else if (delta < 0) removed += Math.abs(delta)
+
+    previous = current
+  }
+
+  return { added, removed }
+}
+
+const bugsChanges = computed(() => metricChanges(dailyBugs.value))
+const smellsChanges = computed(() => metricChanges(dailySmells.value))
+const hotspotsChanges = computed(() => metricChanges(dailyHotspots.value))
+const totalChanges = computed(() => ({
+  added: bugsChanges.value.added + smellsChanges.value.added + hotspotsChanges.value.added,
+  removed: bugsChanges.value.removed + smellsChanges.value.removed + hotspotsChanges.value.removed,
+}))
 
 async function applyRangePreset(preset: Exclude<RangePreset, 'custom'>) {
   const end = normalizeDate(today)
@@ -600,6 +644,47 @@ const chartOptions = computed(() => ({
   font-size: 2rem;
   font-weight: 900;
   line-height: 1.1;
+}
+
+.kpi-value-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kpi-change-breakdown {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.kpi-delta {
+  font-size: 0.85rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  line-height: 1;
+}
+
+.kpi-delta-positive {
+  color: #166534;
+  background: rgba(34, 197, 94, 0.18);
+}
+
+.kpi-delta-negative {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  .kpi-delta-positive {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.28);
+  }
+
+  .kpi-delta-negative {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.3);
+  }
 }
 
 .kpi-hint {

@@ -67,11 +67,11 @@
             <div class="kpi-label">Bugs</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.bugs }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.bugsDelta)">
-                {{ formatDelta(selectedMetrics.bugsDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.bugsAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.bugsRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
@@ -80,11 +80,11 @@
             <div class="kpi-label">Code Smells</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.smells }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.smellsDelta)">
-                {{ formatDelta(selectedMetrics.smellsDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.smellsAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.smellsRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
@@ -93,11 +93,11 @@
             <div class="kpi-label">Security Hotspots</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.security }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.securityDelta)">
-                {{ formatDelta(selectedMetrics.securityDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.securityAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.securityRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
@@ -106,11 +106,11 @@
             <div class="kpi-label">Total</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.total }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.totalDelta)">
-                {{ formatDelta(selectedMetrics.totalDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.totalAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.totalRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">Bugs + Code Smells + Security</div>
           </template>
         </Card>
       </div>
@@ -210,42 +210,74 @@ function expandRange(outer: DateRange, inner: DateRange): DateRange {
   }
 }
 
+const changeDates = computed(() => {
+  const range = zoomRange.value ?? viewRange.value
+  const start = format(range.start, 'yyyy-MM-dd')
+  const end = format(range.end, 'yyyy-MM-dd')
+  return allDates.value.filter((date) => date >= start && date <= end)
+})
+
 const pieBarDate = computed(() => format((zoomRange.value ?? viewRange.value).end, 'yyyy-MM-dd'))
+
+function metricChanges(values: Record<string, number>) {
+  const periodDates = changeDates.value
+  if (periodDates.length < 2) return { added: 0, removed: 0 }
+
+  let previous = values[periodDates[0]] ?? 0
+  let added = 0
+  let removed = 0
+
+  for (const date of periodDates.slice(1)) {
+    const current = values[date] ?? previous
+    const delta = current - previous
+
+    if (delta > 0) added += delta
+    else if (delta < 0) removed += Math.abs(delta)
+
+    previous = current
+  }
+
+  return { added, removed }
+}
+
+function aggregateProjectChanges(valuesByProject: Record<string, Record<string, number>>) {
+  return Object.values(valuesByProject).reduce(
+    (total, values) => {
+      const changes = metricChanges(values)
+      total.added += changes.added
+      total.removed += changes.removed
+      return total
+    },
+    { added: 0, removed: 0 },
+  )
+}
 
 const selectedMetrics = computed(() => {
   const d = pieBarDate.value
-  const previousDate = format(new Date(new Date(d).getTime() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
   const bugs = dailyBugs.value[d] ?? 0
   const smells = dailyCodeSmells.value[d] ?? 0
   const security = dailySecurityHotspots.value[d] ?? 0
-  const previousBugs = dailyBugs.value[previousDate] ?? 0
-  const previousSmells = dailyCodeSmells.value[previousDate] ?? 0
-  const previousSecurity = dailySecurityHotspots.value[previousDate] ?? 0
   const total = bugs + smells + security
-  const previousTotal = previousBugs + previousSmells + previousSecurity
+
+  const bugsChanges = aggregateProjectChanges(projectDailyBugs.value)
+  const smellsChanges = aggregateProjectChanges(projectDailySmells.value)
+  const securityChanges = aggregateProjectChanges(projectDailySecurity.value)
+
   return {
     bugs,
     smells,
     security,
     total,
-    bugsDelta: bugs - previousBugs,
-    smellsDelta: smells - previousSmells,
-    securityDelta: security - previousSecurity,
-    totalDelta: total - previousTotal,
+    bugsAdded: bugsChanges.added,
+    bugsRemoved: bugsChanges.removed,
+    smellsAdded: smellsChanges.added,
+    smellsRemoved: smellsChanges.removed,
+    securityAdded: securityChanges.added,
+    securityRemoved: securityChanges.removed,
+    totalAdded: bugsChanges.added + smellsChanges.added + securityChanges.added,
+    totalRemoved: bugsChanges.removed + smellsChanges.removed + securityChanges.removed,
   }
 })
-
-function formatDelta(value: number): string {
-  if (value > 0) return `+${value}`
-  if (value < 0) return `${value}`
-  return '0'
-}
-
-function deltaClass(value: number): string {
-  if (value > 0) return 'kpi-delta-negative'
-  if (value < 0) return 'kpi-delta-positive'
-  return 'kpi-delta-neutral'
-}
 
 const allDates = computed(() =>
   eachDayOfInterval({ start: dateRange.value.start, end: dateRange.value.end }).map(d =>
@@ -898,6 +930,11 @@ const pieOptions = computed(() => ({
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.kpi-change-breakdown {
+  display: flex;
+  gap: 0.25rem;
 }
 
 .kpi-delta {
