@@ -381,6 +381,16 @@ watch(() => route.params.key, newKey => {
     projectKey.value = newKey;
     branches.value = [];
     selectedBranch.value = '';
+
+    if (presetBeforeZoom.value) {
+      activePreset.value = presetBeforeZoom.value;
+      customRange.value =
+        presetBeforeZoom.value === 'custom'
+          ? [viewRange.value.start, viewRange.value.end]
+          : null;
+    }
+
+    presetBeforeZoom.value = null;
     zoomRange.value = null;
     chartKey.value++;
     loadData(newKey);

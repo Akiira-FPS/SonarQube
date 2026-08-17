@@ -418,7 +418,12 @@ async function loadData() {
       
       const concurrency = 6
       await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
-        branchesByProject[sonarProject.key] = await getSonarBranches(sonarProject.key)
+        try {
+          branchesByProject[sonarProject.key] = await getSonarBranches(sonarProject.key)
+        } catch (error) {
+          console.warn(`Error while loading branches for project ${sonarProject.name}`, error)
+          branchesByProject[sonarProject.key] = []
+        }
       })
 
       projectBranches.value = branchesByProject

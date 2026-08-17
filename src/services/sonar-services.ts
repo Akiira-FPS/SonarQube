@@ -3,7 +3,32 @@ import axios from 'axios'
 
 const token = import.meta.env.VITE_SONAR_TOKEN
 
+type ApiErrorData = {
+  message?: string
+  error?: string
+  detail?: string
+  reason?: string
+  errors?: Array<{ message?: string }>
+}
+
 export function getApiErrorMessage(error: unknown): string {
+  if (axios.isAxiosError<ApiErrorData>(error)) {
+    const status = error.response?.status
+    const data = error.response?.data
+    const dataMessage =
+      data?.message ??
+      data?.error ??
+      data?.detail ??
+      data?.reason ??
+      data?.errors?.[0]?.message
+
+    if (status) {
+      return dataMessage
+        ? `Erreur API (${status}) : ${dataMessage}`
+        : `Erreur API (${status})`
+    }
+  }
+
   return error instanceof Error ? error.message : 'Erreur API inconnue'
 }
 
@@ -32,7 +57,17 @@ async function hasRecentAnalysis(project: string): Promise<boolean> {
 }
 
 async function filterRecentProjects(projects: SonarProject[]): Promise<SonarProject[]> {
-  const keep = await Promise.all(projects.map(project => hasRecentAnalysis(project.key)))
+  const keep: boolean[] = []
+  const concurrency = 6
+
+  for (let i = 0; i < projects.length; i += concurrency) {
+    const batch = projects.slice(i, i + concurrency)
+    const batchKeep = await Promise.all(
+      batch.map(project => hasRecentAnalysis(project.key).catch(() => true)),
+    )
+    keep.push(...batchKeep)
+  }
+
   return projects.filter((_, index) => keep[index])
 }
 
