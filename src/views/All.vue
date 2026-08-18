@@ -33,18 +33,25 @@
       </div>
 
       <div class="kpi-grid">
-        <Card class="kpi-card">
+        <Card class="kpi-card branch-card">
           <template #content>
-            <div class="kpi-label">Period (chart focus)</div>
+            <div class="kpi-label">Branch</div>
+            <Select v-model="selectedBranch" :options="branchOptions" optionLabel="label" optionValue="value" size="small" fluid @change="loadData()" />
+          </template>
+        </Card>
+
+        <Card class="kpi-card changes-card">
+          <template #content>
+            <div class="kpi-label">Period</div>
             <div class="picker-shortcuts">
-              <Button size="small" label="1 jour" :severity="activePreset === 'day' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'day'" @click="applyRangePreset('day')" />
-              <Button size="small" label="1 semaine" :severity="activePreset === 'week' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'week'" @click="applyRangePreset('week')" />
-              <Button size="small" label="1 mois" :severity="activePreset === 'month' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'month'" @click="applyRangePreset('month')" />
-              <Button size="small" label="1 an" :severity="activePreset === 'year' ? 'primary' : 'secondary'"
-                :outlined="activePreset !== 'year'" @click="applyRangePreset('year')" />
+              <Button size="small" label="1 day" :severity="activePreset === 'day' ? 'primary' : 'secondary'" :outlined="activePreset !== 'day'" @click="applyRangePreset('day')" />
+              <Button size="small" label="1 week" :severity="activePreset === 'week' ? 'primary' : 'secondary'" :outlined="activePreset !== 'week'" @click="applyRangePreset('week')" />
+              <Button size="small" label="1 month" :severity="activePreset === 'month' ? 'primary' : 'secondary'" :outlined="activePreset !== 'month'" @click="applyRangePreset('month')" />
+              <Button size="small" label="1 year" :severity="activePreset === 'year' ? 'primary' : 'secondary'" :outlined="activePreset !== 'year'" @click="applyRangePreset('year')" />
+              <Button size="small" label="Custom" :severity="activePreset === 'custom' ? 'primary' : 'secondary'" :outlined="activePreset !== 'custom'" @click="toggleCustomRange" />
+              <Popover ref="customRangePopover">
+                <DatePicker v-model="customRange" selectionMode="range" :manualInput="false" :maxDate="today" inline @update:modelValue="applyCustomRange" />
+              </Popover>
             </div>
           </template>
         </Card>
@@ -54,11 +61,11 @@
             <div class="kpi-label">Bugs</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.bugs }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.bugsDelta)">
-                {{ formatDelta(selectedMetrics.bugsDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.bugsAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.bugsRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
@@ -67,11 +74,11 @@
             <div class="kpi-label">Code Smells</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.smells }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.smellsDelta)">
-                {{ formatDelta(selectedMetrics.smellsDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.smellsAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.smellsRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
@@ -80,11 +87,11 @@
             <div class="kpi-label">Security Hotspots</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.security }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.securityDelta)">
-                {{ formatDelta(selectedMetrics.securityDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.securityAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.securityRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">For selected period</div>
           </template>
         </Card>
 
@@ -93,11 +100,11 @@
             <div class="kpi-label">Total</div>
             <div class="kpi-value-row">
               <div class="kpi-value">{{ selectedMetrics.total }}</div>
-              <div class="kpi-delta" :class="deltaClass(selectedMetrics.totalDelta)">
-                {{ formatDelta(selectedMetrics.totalDelta) }}
+              <div class="kpi-change-breakdown">
+                <span class="kpi-delta kpi-delta-negative">+{{ selectedMetrics.totalAdded }}</span>
+                <span class="kpi-delta kpi-delta-positive">-{{ selectedMetrics.totalRemoved }}</span>
               </div>
             </div>
-            <div class="kpi-hint">Bugs + Code Smells + Security</div>
           </template>
         </Card>
       </div>
@@ -107,7 +114,7 @@
           <div class="card-title">Total issues (trend)</div>
         </template>
         <template #content>
-          <ApexChart type="line" height="520px" width="100%" :options="chartOptions" :series="chartOptions.series" />
+          <ApexChart :key="chartKey" type="line" height="520px" width="100%" :options="chartOptions" :series="chartOptions.series" />
         </template>
       </Card>
 
@@ -140,9 +147,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getSonarProjects, getSonarHistory, getApiErrorMessage } from '@/services/sonar-services'
-import type { SonarMetricHistory } from '@/model/sonar-model'
+import { getSonarProjects, getSonarHistory, getSonarBranches, getApiErrorMessage } from '@/services/sonar-services'
+import type { SonarMetricHistory, SonarBranch } from '@/model/sonar-model'
 import { format, eachDayOfInterval } from 'date-fns'
+
+defineOptions({ name: 'AllStats' })
 
 const isLoading = ref(false)
 const errorMessage = ref<string | null>(null)
@@ -153,54 +162,49 @@ const dailySecurityHotspots = ref<Record<string, number>>({})
 const dailyTotals = ref<Record<string, number>>({})
 const projects = ref<Array<{ key: string; name: string }>>([])
 
+type DateRange = { start: Date; end: Date }
+type RangePreset = 'day' | 'week' | 'month' | 'year' | 'custom'
+type ApexTooltipContext = { dataPointIndex: number }
+
+const MAIN_BRANCH_VALUE = '__main__'
+const branchOptions = ref([{ label: 'Main branches', value: MAIN_BRANCH_VALUE }])
+const selectedBranch = ref(MAIN_BRANCH_VALUE)
+const projectBranches = ref<Record<string, SonarBranch[]>>({})
+
 const today = new Date()
 const lastYear = new Date()
 lastYear.setFullYear(today.getFullYear() - 1)
-
-const dateRange = ref({ start: lastYear, end: today })
-const pieBarDate = ref(format(today, 'yyyy-MM-dd'))
-
-type RangePreset = 'day' | 'week' | 'month' | 'year'
+const dateRange = ref<DateRange>({ start: lastYear, end: today })
+const viewRange = ref<DateRange>({ start: lastYear, end: today })
+const zoomRange = ref<DateRange | null>(null)
 const activePreset = ref<RangePreset>('year')
+const presetBeforeZoom = ref<RangePreset | null>(null)
+const customRange = ref<(Date | null)[] | null>(null)
+const customRangePopover = ref<{ toggle: (event: Event) => void; hide: () => void } | null>(null)
+const chartKey = ref(0)
 
-function applyRangePreset(preset: RangePreset) {
-  activePreset.value = preset
-  pieBarDate.value = format(today, 'yyyy-MM-dd')
+function normalizeDate(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-const selectedMetrics = computed(() => {
-  const d = pieBarDate.value
-  const previousDate = format(new Date(new Date(d).getTime() - 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
-  const bugs = dailyBugs.value[d] ?? 0
-  const smells = dailyCodeSmells.value[d] ?? 0
-  const security = dailySecurityHotspots.value[d] ?? 0
-  const previousBugs = dailyBugs.value[previousDate] ?? 0
-  const previousSmells = dailyCodeSmells.value[previousDate] ?? 0
-  const previousSecurity = dailySecurityHotspots.value[previousDate] ?? 0
-  const total = bugs + smells + security
-  const previousTotal = previousBugs + previousSmells + previousSecurity
+function subtractPeriod(date: Date, preset: Exclude<RangePreset, 'custom'>): Date {
+  const start = new Date(date)
+  if (preset === 'day') start.setDate(start.getDate() - 1)
+  if (preset === 'week') start.setDate(start.getDate() - 7)
+  if (preset === 'month') start.setMonth(start.getMonth() - 1)
+  if (preset === 'year') start.setFullYear(start.getFullYear() - 1)
+  return start
+}
+
+function containsRange(outer: DateRange, inner: DateRange): boolean {
+  return outer.start.getTime() <= inner.start.getTime() && outer.end.getTime() >= inner.end.getTime()
+}
+
+function expandRange(outer: DateRange, inner: DateRange): DateRange {
   return {
-    bugs,
-    smells,
-    security,
-    total,
-    bugsDelta: bugs - previousBugs,
-    smellsDelta: smells - previousSmells,
-    securityDelta: security - previousSecurity,
-    totalDelta: total - previousTotal,
+    start: outer.start.getTime() <= inner.start.getTime() ? outer.start : inner.start,
+    end: outer.end.getTime() >= inner.end.getTime() ? outer.end : inner.end,
   }
-})
-
-function formatDelta(value: number): string {
-  if (value > 0) return `+${value}`
-  if (value < 0) return `${value}`
-  return '0'
-}
-
-function deltaClass(value: number): string {
-  if (value > 0) return 'kpi-delta-negative'
-  if (value < 0) return 'kpi-delta-positive'
-  return 'kpi-delta-neutral'
 }
 
 const allDates = computed(() =>
@@ -210,18 +214,163 @@ const allDates = computed(() =>
 )
 
 const focusedDates = computed(() => {
-  const end = new Date(today)
-  const start = new Date(end)
-
-  if (activePreset.value === 'day') start.setDate(start.getDate() - 1)
-  if (activePreset.value === 'week') start.setDate(start.getDate() - 7)
-  if (activePreset.value === 'month') start.setMonth(start.getMonth() - 1)
-  if (activePreset.value === 'year') start.setFullYear(start.getFullYear() - 1)
-
-  const startKey = format(start, 'yyyy-MM-dd')
-  const endKey = format(end, 'yyyy-MM-dd')
-  return allDates.value.filter(date => date >= startKey && date <= endKey)
+  const start = format(viewRange.value.start, 'yyyy-MM-dd')
+  const end = format(viewRange.value.end, 'yyyy-MM-dd')
+  return allDates.value.filter((date) => date >= start && date <= end)
 })
+
+const changeDates = computed(() => {
+  const range = zoomRange.value ?? viewRange.value
+  const start = format(range.start, 'yyyy-MM-dd')
+  const end = format(range.end, 'yyyy-MM-dd')
+  return allDates.value.filter((date) => date >= start && date <= end)
+})
+
+const pieBarDate = computed(() => format((zoomRange.value ?? viewRange.value).end, 'yyyy-MM-dd'))
+
+function metricChanges(values: Record<string, number>) {
+  const periodDates = changeDates.value
+  if (periodDates.length < 2) return { added: 0, removed: 0 }
+
+  let previous = values[periodDates[0]] ?? 0
+  let added = 0
+  let removed = 0
+
+  for (const date of periodDates.slice(1)) {
+    const current = values[date] ?? previous
+    const delta = current - previous
+
+    if (delta > 0) added += delta
+    else if (delta < 0) removed += Math.abs(delta)
+
+    previous = current
+  }
+
+  return { added, removed }
+}
+
+function aggregateProjectChanges(valuesByProject: Record<string, Record<string, number>>) {
+  return Object.values(valuesByProject).reduce(
+    (total, values) => {
+      const changes = metricChanges(values)
+      total.added += changes.added
+      total.removed += changes.removed
+      return total
+    },
+    { added: 0, removed: 0 },
+  )
+}
+
+const selectedMetrics = computed(() => {
+  const d = pieBarDate.value
+  const bugs = dailyBugs.value[d] ?? 0
+  const smells = dailyCodeSmells.value[d] ?? 0
+  const security = dailySecurityHotspots.value[d] ?? 0
+  const total = bugs + smells + security
+
+  const bugsChanges = aggregateProjectChanges(projectDailyBugs.value)
+  const smellsChanges = aggregateProjectChanges(projectDailySmells.value)
+  const securityChanges = aggregateProjectChanges(projectDailySecurity.value)
+
+  return {
+    bugs,
+    smells,
+    security,
+    total,
+    bugsAdded: bugsChanges.added,
+    bugsRemoved: bugsChanges.removed,
+    smellsAdded: smellsChanges.added,
+    smellsRemoved: smellsChanges.removed,
+    securityAdded: securityChanges.added,
+    securityRemoved: securityChanges.removed,
+    totalAdded: bugsChanges.added + smellsChanges.added + securityChanges.added,
+    totalRemoved: bugsChanges.removed + smellsChanges.removed + securityChanges.removed,
+  }
+})
+
+async function applyRangePreset(preset: Exclude<RangePreset, 'custom'>) {
+  const end = normalizeDate(today)
+  const range = { start: normalizeDate(subtractPeriod(end, preset)), end }
+
+  activePreset.value = preset
+  presetBeforeZoom.value = null
+  customRange.value = null
+  viewRange.value = range
+  zoomRange.value = null
+  chartKey.value++
+
+  if (!containsRange(dateRange.value, range)) {
+    dateRange.value = expandRange(dateRange.value, range)
+    await loadData()
+  }
+}
+
+function toggleCustomRange(event: Event) {
+  customRangePopover.value?.toggle(event)
+}
+
+async function applyCustomRange(value: Date | Date[] | (Date | null)[] | null | undefined) {
+  if (!Array.isArray(value) || !value[0] || !value[1]) return
+
+  const first = normalizeDate(value[0])
+  const second = normalizeDate(value[1])
+  const range =
+    first.getTime() <= second.getTime()
+      ? { start: first, end: second }
+      : { start: second, end: first }
+
+  activePreset.value = 'custom'
+  presetBeforeZoom.value = null
+  viewRange.value = range
+  zoomRange.value = null
+  chartKey.value++
+  customRangePopover.value?.hide()
+
+  if (!containsRange(dateRange.value, range)) {
+    dateRange.value = expandRange(dateRange.value, range)
+    await loadData()
+  }
+}
+
+function clampToView(date: Date): Date {
+  const timestamp = date.getTime()
+  if (timestamp < viewRange.value.start.getTime()) return viewRange.value.start
+  if (timestamp > viewRange.value.end.getTime()) return viewRange.value.end
+  return date
+}
+
+function handleChartZoom(_chartContext: unknown, { xaxis }: { xaxis?: { min?: number; max?: number } }) {
+  if (!Number.isFinite(xaxis?.min) || !Number.isFinite(xaxis?.max)) return
+
+  const start = normalizeDate(clampToView(new Date(xaxis!.min!)))
+  const end = normalizeDate(clampToView(new Date(xaxis!.max!)))
+  if (start.getTime() > end.getTime()) return
+
+  if (zoomRange.value === null) {
+    presetBeforeZoom.value = activePreset.value
+  }
+
+  activePreset.value = 'custom'
+  customRange.value = [start, end]
+  zoomRange.value = { start, end }
+}
+
+function handleChartResetZoom() {
+  zoomRange.value = null
+
+  if (presetBeforeZoom.value) {
+    activePreset.value = presetBeforeZoom.value
+    if (presetBeforeZoom.value !== 'custom') customRange.value = null
+    presetBeforeZoom.value = null
+  }
+
+  return {
+    xaxis: {
+      min: viewRange.value.start.getTime(),
+      max: viewRange.value.end.getTime(),
+    },
+  }
+}
 
 const projectDailyBugs = ref<Record<string, Record<string, number>>>({})
 const projectDailySmells = ref<Record<string, Record<string, number>>>({})
@@ -260,9 +409,45 @@ async function loadData() {
 
   let firstProjectError: string | null = null
   let projectErrorCount = 0
+
   try {
     const sonarProjects = await getSonarProjects()
-    projects.value = sonarProjects.map(p => ({ key: p.key, name: p.name }))
+
+    if (Object.keys(projectBranches.value).length === 0) {
+      const branchesByProject: Record<string, SonarBranch[]> = {}
+      
+      const concurrency = 6
+      await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
+        try {
+          branchesByProject[sonarProject.key] = await getSonarBranches(sonarProject.key)
+        } catch (error) {
+          console.warn(`Error while loading branches for project ${sonarProject.name}`, error)
+          branchesByProject[sonarProject.key] = []
+        }
+      })
+
+      projectBranches.value = branchesByProject
+
+      const branchNames = Array.from(
+        new Set(
+          Object.values(branchesByProject).flatMap((branches) =>
+            branches.map((branch) => branch.name),
+          ),
+        ),
+      ).sort((a, b) => a.localeCompare(b))
+
+      branchOptions.value = [
+        { label: 'Main branches', value: MAIN_BRANCH_VALUE },
+        ...branchNames.map((name) => ({ label: name, value: name })),
+      ]
+    }
+
+    const targetProjects =
+      selectedBranch.value === MAIN_BRANCH_VALUE
+        ? sonarProjects
+        : sonarProjects.filter((sonarProject) => projectBranches.value[sonarProject.key]?.some((branch) => branch.name === selectedBranch.value))
+
+    projects.value = targetProjects.map(project => ({ key: project.key, name: project.name }))
     projectDailyBugs.value = {}
     projectDailySmells.value = {}
     projectDailySecurity.value = {}
@@ -283,11 +468,17 @@ async function loadData() {
     }
 
     const concurrency = 6
-    await runWithConcurrency(sonarProjects, concurrency, async (sonarProject) => {
+    await runWithConcurrency(targetProjects, concurrency, async (sonarProject) => {
       try {
+        const branch =
+          selectedBranch.value === MAIN_BRANCH_VALUE
+            ? projectBranches.value[sonarProject.key]?.find((item) => item.isMain)?.name
+            : selectedBranch.value
+
         const measures: SonarMetricHistory[] = await getSonarHistory({
           component: sonarProject.key,
           metrics: 'bugs,code_smells,security_hotspots',
+          branch: branch || undefined,
           from,
           to,
         })
@@ -350,7 +541,6 @@ async function loadData() {
           ? `Certaines métriques n'ont pas pu être chargées (${projectErrorCount} projets). Première erreur: ${firstProjectError}`
           : `Certaines métriques n'ont pas pu être chargées. Détail: ${firstProjectError}`
     }
-
   } catch (error) {
     console.error('Error while loading Sonar projects:', error)
     errorMessage.value = getApiErrorMessage(error)
@@ -409,6 +599,10 @@ const chartOptions = computed(() => ({
       type: 'x',
       autoScaleYaxis: true,
     },
+    events: {
+      zoomed: handleChartZoom,
+      beforeResetZoom: handleChartResetZoom,
+    },
     foreColor: chartTextColor,
   },
   colors: [roseBugColor, roseSmellColor, roseSecurityColor, roseTotalColor],
@@ -430,7 +624,7 @@ const chartOptions = computed(() => ({
   },
   tooltip: {
     shared: true,
-    custom: function ({ dataPointIndex }: any) {
+    custom: function ({ dataPointIndex }: ApexTooltipContext) {
       const date = chartData.value.categories[dataPointIndex]
       const bugs = chartData.value.bugs[dataPointIndex]
       const smells = chartData.value.smells[dataPointIndex]
@@ -522,7 +716,7 @@ const barOptions = computed(() => ({
   },
   legend: { show: false },
   tooltip: {
-    custom: function ({ dataPointIndex }: any) {
+    custom: function ({ dataPointIndex }: ApexTooltipContext) {
       const project = projects.value[dataPointIndex]
       const date = pieBarDate.value
 
@@ -696,14 +890,31 @@ const pieOptions = computed(() => ({
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: minmax(165px, 0.9fr) minmax(350px, 1.75fr) repeat(4, minmax(185px, 1.08fr));
+  gap: 0.65rem;
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.kpi-card {
+  min-width: 0;
 }
 
 .kpi-card :deep(.p-card-body) {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  height: 100%;
+  gap: 0.3rem;
+  padding: 0.85rem 0.95rem;
+}
+
+.kpi-card :deep(.p-card-content) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  gap: 0.45rem;
 }
 
 .kpi-card-total :deep(.p-card-body) {
@@ -718,30 +929,38 @@ const pieOptions = computed(() => ({
 }
 
 .kpi-label {
-  font-size: 0.9rem;
-  font-weight: 650;
+  font-size: 0.8rem;
+  font-weight: 700;
   opacity: 0.9;
   color: var(--color-heading);
 }
 
 .kpi-value {
-  font-size: 2rem;
-  font-weight: 900;
-  line-height: 1.1;
+  font-size: 1.72rem;
+  font-weight: 850;
+  line-height: 1;
   color: var(--color-heading);
 }
 
 .kpi-value-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
+  min-height: 2.15rem;
+  white-space: nowrap;
+}
+
+.kpi-change-breakdown {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
 }
 
 .kpi-delta {
-  font-size: 0.85rem;
+  font-size: 0.76rem;
   font-weight: 800;
   border-radius: 999px;
-  padding: 0.2rem 0.5rem;
+  padding: 0.18rem 0.42rem;
   line-height: 1;
 }
 
@@ -758,23 +977,6 @@ const pieOptions = computed(() => ({
 .kpi-delta-neutral {
   color: #334155;
   background: rgba(148, 163, 184, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  .kpi-delta-positive {
-    color: #86efac;
-    background: rgba(34, 197, 94, 0.28);
-  }
-
-  .kpi-delta-negative {
-    color: #fca5a5;
-    background: rgba(239, 68, 68, 0.3);
-  }
-
-  .kpi-delta-neutral {
-    color: #e2e8f0;
-    background: rgba(148, 163, 184, 0.38);
-  }
 }
 
 .kpi-date {
@@ -813,12 +1015,43 @@ const pieOptions = computed(() => ({
 
 .picker-shortcuts {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 1rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0;
+  overflow: visible;
+}
+
+.picker-shortcuts :deep(.p-button) {
+  flex: 0 0 auto;
+  min-height: 2.1rem;
+  padding: 0.38rem 0.52rem;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
 @media (prefers-color-scheme: dark) {
+  .kpi-delta-positive {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.28);
+  }
+
+  .kpi-delta-negative {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.3);
+  }
+
+  .kpi-delta-neutral {
+    color: #e2e8f0;
+    background: rgba(148, 163, 184, 0.38);
+  }
+
   .picker-shortcuts :deep(.p-button) {
     color: var(--vt-c-gray-50) !important;
     border-color: var(--color-border) !important;
@@ -845,12 +1078,6 @@ const pieOptions = computed(() => ({
     color: var(--vt-c-gray-50) !important;
     border-color: var(--color-border-hover) !important;
   }
-}
-
-.chart-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
 }
 
 @media (min-width: 992px) {
